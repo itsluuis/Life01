@@ -1,0 +1,37 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Bases de datos locales de la simulación (se generan automáticamente)
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+brain.db
+telemetry.db
+
+# Carpetas temporales y pruebas
+test_scratch/
+test_gui_scratch/
+.pytest_cache/
+
+# Archivos de entorno y credenciales (prevención de fugas)
+.env
+.env.*
+*.key
+*.pem
+secrets/
+
+# IDEs y editores de código
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Archivos de sistema operativo
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+.DS_Store
