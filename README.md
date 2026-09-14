@@ -1,34 +1,36 @@
-# Life01 - Simulación de Vida Artificial con Machine Learning (Célula Primordial)
+# Life01 - Simulación de Vida Artificial con Machine Learning (Versión 1.1)
 
-Simulación interactiva de vida artificial donde una **Célula Primordial** aprende a buscar alimento, sobrevivir a los ciclos de día y noche, y regresar a su refugio antes del anochecer mediante **Aprendizaje por Refuerzo (Q-Learning)**.
+Simulación interactiva de vida artificial donde una población de **Células Primordiales** aprende a buscar alimento, sobrevivir a los ciclos de día y noche, reproducirse y regresar a su refugio antes del anochecer mediante **Aprendizaje por Refuerzo Colectivo (Q-Learning)**.
 
 ---
 
-## 🎮 Reglas del Juego
+## 🎮 Novedades de la Versión 1.1
 
-1. **La Malla (101 x 101)**:
-   - **Célula Primordial** (⚪ Píxel Blanco): Nace en el centro `(50, 50)` y puede moverse en las 8 direcciones circundantes (vecindad de Moore).
-   - **El Hogar** (🟢 Píxel Verde en `(50, 50)`): Cuenta con una zona de efecto de **5x5 casillas** delimitada por un borde verde brillante.
-   - **Comida** (🔴 Píxeles Rojos): Aparecen **2 comidas al inicio de cada día**. Si no son consumidas, **caducan a los 3 días (30 ciclos)**.
-2. **Ciclos y Días**:
-   - Cada movimiento o acción equivale a **1 ciclo** (ritmo base: 1 segundo por ciclo).
-   - **10 ciclos = 1 día**.
-3. **Mecánica de Nutrición y Vida (HP)**:
-   - La célula cuenta con **2 puntos de vida (HP)** al inicio.
-   - Para comer, gasta 1 ciclo al estar en una **casilla circundante** (sin necesidad de pisarla).
-   - Si la célula **come y regresa a cualquier casilla del hogar (5x5)** antes de que termine el día: sobrevive y recupera 1 punto de vida si había sido dañada (máx 2 HP).
-   - Si no logra comer o no regresa a casa antes de finalizar el día: pierde **1 HP**. Si pasa 2 días sin lograrlo, **muere (0 HP)**.
-4. **Generaciones y Entrenamiento**:
-   - Cada generación dura un máximo de **100 ciclos**.
-   - Si la célula muere o alcanza los 100 ciclos, la generación concluye e **inmediatamente comienza la siguiente generación** desde el ciclo 0, conservando la memoria acumulada.
-   - Al pulsar **"Guardar y Salir"**, los conocimientos y el historial quedan guardados de forma íntegra.
+1. **Reproducción Celular (Probabilidad del 50%)**:
+   - Toda célula que logre comer y regresar al área del hogar (5x5) antes de finalizar el día (cada 10 ciclos) recupera 1 punto de vida (máx 2 HP) y tiene un **50% de probabilidad de reproducirse**.
+   - Las células hijas nacen con **2 HP** dentro de la zona de hogar y se suman a la población activa para el siguiente día.
+2. **Competencia Darwiniana por Recursos**:
+   - Se mantienen fijas **2 comidas por día**, caducando a los 3 días (30 ciclos).
+   - A medida que la población crece, las células compiten por el alimento disponible, premiando a los individuos más rápidos y eficaces en su navegación.
+3. **Cerebro Colectivo de Especie**:
+   - Todas las células vivas consultan y retroalimentan la misma tabla Q (`q_agent.py`). La experiencia y descubrimientos de cada célula que sobrevive alimentan la inteligencia colectiva de toda la especie.
+4. **Límite de 1000 Ciclos y Extinción Total**:
+   - La duración máxima de cada generación aumenta a **1000 ciclos** (100 días de simulación).
+   - Si muere una célula individual, la simulación **no se reinicia**; continúa mientras exista al menos una célula viva.
+   - La generación solo concluye si ocurre una **extinción total** (0 células vivas) o si se alcanzan los 1000 ciclos.
+   - Cada nueva generación arranca siempre desde el ciclo 0 con **1 sola célula primordial en el centro `(50, 50)`** para medir el crecimiento demográfico de forma estandarizada.
+5. **Gráficos Acumulativos Duales (Sin Borrado)**:
+   - **Gráfico Superior**: Promedio de vida ($HP_{promedio}$) acumulado a lo largo de todo el recorrido.
+   - **Gráfico Inferior**: Crecimiento de la población ($N$ células vivas) acumulado a lo largo del tiempo.
+   - Los datos **no se borran ni se desplazan a la izquierda**, permitiendo observar la evolución temporal completa de las simulaciones.
 
 ---
 
 ## 🧠 Bases de Datos SQLite (Persistencia Dual)
 
-- **`brain.db`**: Almacena las tablas de decisión (Q-Table), la tasa de exploración ($\epsilon$) y el rendimiento de las generaciones pasadas para asegurar la evolución continua del modelo.
-- **`telemetry.db`**: Registra ciclo a ciclo la vida (HP), acciones, distancias y recompensas, alimentando el gráfico en tiempo real y el análisis histórico.
+- **`brain.db`**: Almacena las tablas de decisión (Q-Table colectiva), la tasa de exploración ($\epsilon$) y el rendimiento de las generaciones pasadas para asegurar la evolución continua del modelo.
+- **`telemetry.db`**: Registra ciclo a ciclo la vida (HP), población activa, promedio de salud, distancias y recompensas, alimentando los gráficos en tiempo real.
+- **`backups/`**: Carpeta donde se resguardan copias de seguridad de versiones anteriores (protegida de git).
 
 ---
 
@@ -46,13 +48,15 @@ python main.py
   - `1x (1s)`: Ritmo en tiempo real de 1 segundo por ciclo.
   - `5x`: Ritmo acelerado (0.2s por ciclo).
   - `⚡ Turbo`: Máxima velocidad de cálculo para entrenar rápidamente a la IA.
+- **Selectores de Zoom**:
+  - `6x`, `7x`, `8x` para escalar el tamaño de la malla en pantalla según tu preferencia.
 - **💾 Guardar y Salir**: Pausa la simulación, guarda todas las transacciones pendientes en SQLite y cierra de forma segura.
 
 ---
 
 ## 🧪 Pruebas Automatizadas
 
-Para validar las reglas del juego, persistencia y la interfaz gráfica:
+Para validar las reglas del juego, dinámica poblacional, persistencia y la interfaz gráfica:
 
 ```bash
 python -m unittest discover tests

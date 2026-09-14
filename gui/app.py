@@ -1,6 +1,7 @@
 """
-Ventana Principal de la Aplicación (CustomTkinter).
-Integra la malla de 101x101 en el área principal expandida y el panel lateral compacto.
+Ventana Principal de la Aplicación (CustomTkinter - Versión 1.1).
+Malla de 101x101 con renderizado de múltiples células en el área principal
+y panel de telemetría poblacional con gráficos acumulativos apilados.
 """
 
 import customtkinter as ctk
@@ -18,34 +19,25 @@ class LifeApp(ctk.CTk):
         super().__init__()
         self.engine = engine
 
-        self.title("Life01 - Simulación de Vida Artificial con Machine Learning")
-        self.geometry("1260x820")
+        self.title("Life01 v1.1 - Dinámica Poblacional y Aprendizaje por Refuerzo")
+        self.geometry("1280x840")
         self.minsize(1120, 750)
         self.configure(fg_color="#0b0f19")
 
-        # Variables de control del bucle
         self.is_paused = False
-        self.speed_delay = 1.0  # 1.0 segundo base por ciclo
+        self.speed_delay = 1.0
         self._loop_after_id = None
         self.current_cell_size = DEFAULT_CELL_SIZE
 
         self._build_ui()
-
-        # Manejar cierre seguro de la ventana
         self.protocol("WM_DELETE_WINDOW", self.on_save_and_exit)
-
-        # Iniciar el bucle de simulación
         self._schedule_next_step()
 
     def _build_ui(self):
-        # Contenedor principal horizontal
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
         self.main_container.pack(fill="both", expand=True, padx=14, pady=14)
 
-        # =========================================================================
-        # 1. PANEL LATERAL IZQUIERDO: Estadísticas, Controles y Gráfico Compacto
-        # (Ocupa el espacio compacto para dejar todo el protagonismo a la malla)
-        # =========================================================================
+        # 1. Panel Lateral: Estadísticas y Gráficos Acumulativos Apilados
         self.stats_panel = StatsPanel(
             self.main_container,
             on_toggle_pause=self.toggle_pause,
@@ -54,14 +46,11 @@ class LifeApp(ctk.CTk):
         )
         self.stats_panel.pack(side="left", fill="y", padx=(0, 12), pady=0)
 
-        # =========================================================================
-        # 2. ÁREA PRINCIPAL DERECHA: Malla 101x101 Expandida
-        # (Ocupa todo el espacio principal expandible para máxima visibilidad)
-        # =========================================================================
+        # 2. Área Principal: Malla 101x101 con Células Múltiples
         self.mesh_frame = ctk.CTkFrame(self.main_container, fg_color="#0f172a", corner_radius=12)
         self.mesh_frame.pack(side="right", fill="both", expand=True, padx=0, pady=0)
 
-        # Barra superior de la malla: Título, Leyenda y Selector de Zoom
+        # Encabezado
         self.header_bar = ctk.CTkFrame(self.mesh_frame, fg_color="transparent")
         self.header_bar.pack(fill="x", padx=16, pady=(10, 6))
 
@@ -73,7 +62,7 @@ class LifeApp(ctk.CTk):
         )
         title_lbl.pack(side="left")
 
-        legend_text = "⚪ Célula | 🟢 Hogar 5x5 | 🔴 Comida"
+        legend_text = "⚪ Células Vivas | 🟢 Hogar 5x5 | 🔴 Comida (2/día)"
         legend_lbl = ctk.CTkLabel(
             self.header_bar,
             text=legend_text,
@@ -82,7 +71,7 @@ class LifeApp(ctk.CTk):
         )
         legend_lbl.pack(side="left", padx=20)
 
-        # Controles de Zoom para ajustar el tamaño de la malla a gusto
+        # Controles de Zoom
         self.zoom_frame = ctk.CTkFrame(self.header_bar, fg_color="transparent")
         self.zoom_frame.pack(side="right")
 
@@ -117,7 +106,7 @@ class LifeApp(ctk.CTk):
 
         self.zoom_buttons = [self.btn_z6, self.btn_z7, self.btn_z8]
 
-        # Contenedor centrado para el lienzo de la malla
+        # Contenedor del lienzo
         self.canvas_container = ctk.CTkFrame(self.mesh_frame, fg_color="#0b0f19", corner_radius=8)
         self.canvas_container.pack(fill="both", expand=True, padx=14, pady=(0, 14))
 
@@ -140,22 +129,18 @@ class LifeApp(ctk.CTk):
         if self.is_paused:
             return
 
-        # 1. Ejecutar 1 ciclo en el motor
+        # 1. Ejecutar ciclo del motor
         data = self.engine.step()
 
-        # 2. Actualizar la vista de la malla
-        cell_x = data["cell_x"]
-        cell_y = data["cell_y"]
+        # 2. Actualizar lienzo con todas las células vivas y comidas
+        cells_coords = data["cells_coords"]
         foods = data["foods"]
-        self.grid_canvas.update_grid(cell_x, cell_y, foods)
+        self.grid_canvas.update_grid(cells_coords, foods)
 
-        # 3. Consultar telemetría para el gráfico
-        indices, hps = self.engine.telemetry_db.get_recent_hp_series(limit=60)
+        # 3. Actualizar panel lateral con métricas acumulativas
+        self.stats_panel.update_metrics(data)
 
-        # 4. Actualizar panel de telemetría y gráfico en tiempo real
-        self.stats_panel.update_metrics(data, indices, hps)
-
-        # 5. Programar siguiente ciclo
+        # 4. Programar siguiente ciclo
         self._schedule_next_step()
 
     def toggle_pause(self):
@@ -177,7 +162,6 @@ class LifeApp(ctk.CTk):
             self._schedule_next_step()
 
     def on_save_and_exit(self):
-        """Pausa el bucle, guarda en bases de datos y cierra limpiamente la ventana."""
         self.is_paused = True
         if self._loop_after_id:
             try:

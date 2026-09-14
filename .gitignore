@@ -10,6 +10,7 @@ __pycache__/
 *.db-shm
 brain.db
 telemetry.db
+backups/
 
 # Carpetas temporales y pruebas
 test_scratch/

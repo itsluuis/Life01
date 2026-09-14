@@ -1,7 +1,7 @@
 """
-Base de datos SQLite para la telemetría, métricas y evolución temporal.
-Guarda los datos ciclo a ciclo y el resumen por generación para alimentar
-los gráficos y análisis de rendimiento.
+Base de datos SQLite para la telemetría y métricas poblacionales (Versión 1.1).
+Guarda la evolución ciclo a ciclo de población, vida promedio y resúmenes generacionales.
+Permite consultar series acumulativas completas para gráficos sin borrado.
 """
 
 import sqlite3
@@ -36,10 +36,23 @@ class TelemetryDB:
                     dist_to_home REAL NOT NULL,
                     dist_to_food REAL NOT NULL,
                     is_in_home INTEGER NOT NULL,
+                    population_count INTEGER DEFAULT 1,
+                    avg_hp REAL DEFAULT 2.0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
+            # Migración segura si las columnas nuevas no existían en versiones previas
+            try:
+                self._conn.execute("ALTER TABLE cycle_logs ADD COLUMN population_count INTEGER DEFAULT 1;")
+            except sqlite3.OperationalError:
+                pass
+
+            try:
+                self._conn.execute("ALTER TABLE cycle_logs ADD COLUMN avg_hp REAL DEFAULT 2.0;")
+            except sqlite3.OperationalError:
+                pass
+
             self._conn.execute(
                 """
                 CREATE INDEX IF NOT EXISTS idx_cycle_gen ON cycle_logs(generation_id)
@@ -54,11 +67,16 @@ class TelemetryDB:
                     food_eaten INTEGER NOT NULL,
                     final_hp INTEGER NOT NULL,
                     ended_alive INTEGER NOT NULL,
+                    max_population INTEGER DEFAULT 1,
                     death_reason TEXT NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
                 """
             )
+            try:
+                self._conn.execute("ALTER TABLE generation_summaries ADD COLUMN max_population INTEGER DEFAULT 1;")
+            except sqlite3.OperationalError:
+                pass
 
     def log_cycle(
         self,
@@ -74,15 +92,18 @@ class TelemetryDB:
         dist_to_home: float,
         dist_to_food: float,
         is_in_home: bool,
+        population_count: int = 1,
+        avg_hp: float = 2.0,
     ):
-        """Registra la telemetría del ciclo actual."""
+        """Registra la telemetría del ciclo actual con soporte para métricas poblacionales."""
         with self._conn:
             self._conn.execute(
                 """
                 INSERT INTO cycle_logs (
                     generation_id, cycle, day, cell_x, cell_y, hp, has_eaten,
-                    action_name, reward, dist_to_home, dist_to_food, is_in_home
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    action_name, reward, dist_to_home, dist_to_food, is_in_home,
+                    population_count, avg_hp
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     generation_id,
@@ -97,6 +118,8 @@ class TelemetryDB:
                     dist_to_home,
                     dist_to_food,
                     1 if is_in_home else 0,
+                    population_count,
+                    avg_hp,
                 ),
             )
 
@@ -108,15 +131,17 @@ class TelemetryDB:
         food_eaten: int,
         final_hp: int,
         ended_alive: bool,
+        max_population: int,
         death_reason: str,
     ):
-        """Registra el balance consolidado al finalizar una generación."""
+        """Registra el balance consolidado de la población al finalizar una generación."""
         with self._conn:
             self._conn.execute(
                 """
                 INSERT OR REPLACE INTO generation_summaries (
-                    generation_id, total_cycles, days_survived, food_eaten, final_hp, ended_alive, death_reason
-                ) VALUES (?, ?, ?, ?, ?, ?, ?)
+                    generation_id, total_cycles, days_survived, food_eaten,
+                    final_hp, ended_alive, max_population, death_reason
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     generation_id,
@@ -125,56 +150,31 @@ class TelemetryDB:
                     food_eaten,
                     final_hp,
                     1 if ended_alive else 0,
+                    max_population,
                     death_reason,
                 ),
             )
 
-    def get_recent_hp_series(self, limit: int = 150) -> Tuple[List[int], List[int]]:
+    def get_cumulative_metrics(self, limit: int = 2000) -> Tuple[List[int], List[float], List[int]]:
         """
-        Retorna (ciclos_relativos, valores_hp) de los últimos N ciclos registrados
-        para graficar en tiempo real.
+        Retorna las series acumuladas de (índices_ciclo, avg_hp, población)
+        para mostrar la evolución completa sin borrado a la izquierda.
         """
         cursor = self._conn.cursor()
         cursor.execute(
             """
-            SELECT id, hp FROM cycle_logs ORDER BY id DESC LIMIT ?
+            SELECT id, avg_hp, population_count FROM cycle_logs ORDER BY id DESC LIMIT ?
             """,
             (limit,),
         )
         rows = cursor.fetchall()
         if not rows:
-            return [], []
+            return [], [], []
         rows.reverse()
         indices = list(range(len(rows)))
-        hp_vals = [r[1] for r in rows]
-        return indices, hp_vals
-
-    def get_generation_history(self, limit: int = 50) -> List[Dict[str, Any]]:
-        """Retorna las últimas generaciones para estadísticas comparativas."""
-        cursor = self._conn.cursor()
-        cursor.execute(
-            """
-            SELECT generation_id, total_cycles, days_survived, food_eaten, final_hp, ended_alive, death_reason
-            FROM generation_summaries ORDER BY generation_id DESC LIMIT ?
-            """,
-            (limit,),
-        )
-        rows = cursor.fetchall()
-        results = []
-        for r in rows:
-            results.append(
-                {
-                    "generation_id": r[0],
-                    "total_cycles": r[1],
-                    "days_survived": r[2],
-                    "food_eaten": r[3],
-                    "final_hp": r[4],
-                    "ended_alive": bool(r[5]),
-                    "death_reason": r[6],
-                }
-            )
-        results.reverse()
-        return results
+        avg_hps = [r[1] for r in rows]
+        populations = [r[2] for r in rows]
+        return indices, avg_hps, populations
 
     def close(self):
         try:

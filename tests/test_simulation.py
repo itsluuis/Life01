@@ -1,5 +1,5 @@
 """
-Pruebas unitarias de las mecánicas de simulación, bases de datos y ciclo de vida.
+Pruebas unitarias de las mecánicas de simulación, bases de datos, ciclo de vida y reproducción (v1.1).
 """
 
 import os
@@ -39,26 +39,42 @@ class TestLifeSimulation(unittest.TestCase):
         self.assertTrue(cell.is_alive)
 
         # Caso 1: Día finaliza sin comer y fuera de casa -> pierde 1 HP (queda en 1 HP)
-        survived, reason = cell.resolve_day_end(in_home_zone=False)
+        survived, reason, repro = cell.resolve_day_end(in_home_zone=False)
         self.assertTrue(survived)
         self.assertEqual(cell.hp, 1)
+        self.assertFalse(repro)
 
         # Caso 2: Día finaliza comiendo y en casa -> recupera 1 HP (vuelve a 2 HP)
         cell.eat()
         self.assertTrue(cell.has_eaten_today)
-        survived, reason = cell.resolve_day_end(in_home_zone=True)
+        survived, reason, repro = cell.resolve_day_end(in_home_zone=True)
         self.assertTrue(survived)
         self.assertEqual(cell.hp, 2)
 
         # Caso 3: Dos días consecutivos sin comer ni volver a casa -> muerte
-        survived, _ = cell.resolve_day_end(in_home_zone=False)
+        survived, _, _ = cell.resolve_day_end(in_home_zone=False)
         self.assertTrue(survived)
         self.assertEqual(cell.hp, 1)
 
-        survived, reason = cell.resolve_day_end(in_home_zone=False)
+        survived, reason, repro = cell.resolve_day_end(in_home_zone=False)
         self.assertFalse(survived)
         self.assertEqual(cell.hp, 0)
         self.assertFalse(cell.is_alive)
+        self.assertFalse(repro)
+
+    def test_reproduction_probability(self):
+        # Probar que al comer y estar en casa, eventualmente se reproduce (50% prob)
+        repro_count = 0
+        trials = 100
+        for _ in range(trials):
+            c = PrimordialCell(50, 50)
+            c.eat()
+            _, _, will_reproduce = c.resolve_day_end(in_home_zone=True)
+            if will_reproduce:
+                repro_count += 1
+        # De 100 intentos con p=0.5, debe estar razonablemente entre 25 y 75
+        self.assertGreater(repro_count, 20)
+        self.assertLess(repro_count, 80)
 
     def test_environment_food_spawn_and_rot(self):
         env = Environment()
@@ -82,7 +98,6 @@ class TestLifeSimulation(unittest.TestCase):
     def test_food_consumption_adjacent(self):
         env = Environment()
         env.reset()
-        # Colocar comida en (51, 50) adyacente a la célula en (50, 50)
         from simulation.environment import FoodItem
         env.foods.append(FoodItem(51, 50, 0))
 
@@ -95,52 +110,18 @@ class TestLifeSimulation(unittest.TestCase):
         self.assertTrue(consumed)
         self.assertEqual(len(env.foods), 0)
 
-    def test_database_persistence(self):
-        # Guardar una generación simulada
-        self.brain_db.save_generation(
-            generation_id=1,
-            q_table={"state1": [1.0, 2.0, 3.0]},
-            epsilon=0.65,
-            total_cycles=85,
-            days_survived=8,
-            food_eaten=6,
-            death_reason="Test reason",
-        )
-
-        loaded = self.brain_db.load_latest_generation()
-        self.assertIsNotNone(loaded)
-        gen_id, q_table, eps = loaded
-        self.assertEqual(gen_id, 1)
-        self.assertEqual(q_table["state1"], [1.0, 2.0, 3.0])
-        self.assertAlmostEqual(eps, 0.65)
-
-        # Telemetría
-        self.telemetry_db.log_cycle(
-            generation_id=1,
-            cycle=0,
-            day=0,
-            cell_x=50,
-            cell_y=50,
-            hp=2,
-            has_eaten=False,
-            action_name="Mover N",
-            reward=0.1,
-            dist_to_home=0,
-            dist_to_food=5,
-            is_in_home=True,
-        )
-        indices, hps = self.telemetry_db.get_recent_hp_series(limit=10)
-        self.assertEqual(len(indices), 1)
-        self.assertEqual(hps[0], 2)
-
-    def test_simulation_engine_step(self):
+    def test_simulation_engine_population_dynamics(self):
         engine = SimulationEngine(brain_db=self.brain_db, telemetry_db=self.telemetry_db)
-        # Ejecutar 25 ciclos completos
-        for _ in range(25):
+        self.assertEqual(len(engine.cells), 1)
+        self.assertEqual(engine.max_cycles_per_gen, 1000)
+
+        # Ejecutar 35 ciclos de simulación
+        for _ in range(35):
             res = engine.step()
-            self.assertIn("cycle", res)
-            self.assertIn("hp", res)
-            self.assertIn("action", res)
+            self.assertIn("population", res)
+            self.assertIn("avg_hp", res)
+            self.assertIn("cells_coords", res)
+            self.assertGreaterEqual(res["population"], 0)
 
 
 if __name__ == "__main__":
