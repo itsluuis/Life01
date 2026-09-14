@@ -49,14 +49,16 @@ class QLearningAgent:
         else:
             dir_food = 8
 
+        closest_home, dist_home = env.get_closest_home(cell.x, cell.y)
         if env.is_in_home(cell.x, cell.y):
             dir_home = 8
+        elif closest_home is not None:
+            dir_home = env.calculate_direction_sector(cell.x, cell.y, closest_home.center_x, closest_home.center_y)
         else:
-            dir_home = env.calculate_direction_sector(cell.x, cell.y, CENTER_X, CENTER_Y)
+            dir_home = 8
 
         day_step = current_cycle % 10
         cycles_left = 10 - day_step
-        dist_home = env.get_distance_to_home(cell.x, cell.y)
 
         if dist_home >= cycles_left:
             time_risk = 2

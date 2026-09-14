@@ -19,7 +19,7 @@ class LifeApp(ctk.CTk):
         super().__init__()
         self.engine = engine
 
-        self.title("Life01 v1.1 - Dinámica Poblacional y Aprendizaje por Refuerzo")
+        self.title("Life01 v1.3 - Ecosistema Evolutivo: Cazadoras, Monstruos y Civilización")
         self.geometry("1280x840")
         self.minsize(1120, 750)
         self.configure(fg_color="#0b0f19")
@@ -37,7 +37,7 @@ class LifeApp(ctk.CTk):
         self.main_container = ctk.CTkFrame(self, fg_color="transparent")
         self.main_container.pack(fill="both", expand=True, padx=14, pady=14)
 
-        # 1. Panel Lateral: Estadísticas y Gráficos Acumulativos Apilados
+        # 1. Panel Lateral: Estadísticas, Feed de Avisos y Gráficos Acumulativos
         self.stats_panel = StatsPanel(
             self.main_container,
             on_toggle_pause=self.toggle_pause,
@@ -46,7 +46,7 @@ class LifeApp(ctk.CTk):
         )
         self.stats_panel.pack(side="left", fill="y", padx=(0, 12), pady=0)
 
-        # 2. Área Principal: Malla 101x101 con Células Múltiples
+        # 2. Área Principal: Malla 101x101 con Ecología Completa
         self.mesh_frame = ctk.CTkFrame(self.main_container, fg_color="#0f172a", corner_radius=12)
         self.mesh_frame.pack(side="right", fill="both", expand=True, padx=0, pady=0)
 
@@ -62,14 +62,14 @@ class LifeApp(ctk.CTk):
         )
         title_lbl.pack(side="left")
 
-        legend_text = "⚪ Células Vivas | 🟢 Hogar 5x5 | 🔴 Comida (2/día)"
+        legend_text = "⚪ Blancas | 🔵 Cazadoras | 🍷 Monstruos | 🟢 Hogares 5x5 | 🔴 Comida"
         legend_lbl = ctk.CTkLabel(
             self.header_bar,
             text=legend_text,
             font=ctk.CTkFont(size=12),
             text_color="#94a3b8"
         )
-        legend_lbl.pack(side="left", padx=20)
+        legend_lbl.pack(side="left", padx=16)
 
         # Controles de Zoom
         self.zoom_frame = ctk.CTkFrame(self.header_bar, fg_color="transparent")
@@ -132,12 +132,16 @@ class LifeApp(ctk.CTk):
         # 1. Ejecutar ciclo del motor
         data = self.engine.step()
 
-        # 2. Actualizar lienzo con todas las células vivas y comidas
-        cells_coords = data["cells_coords"]
-        foods = data["foods"]
-        self.grid_canvas.update_grid(cells_coords, foods)
+        # 2. Actualizar lienzo con todas las entidades
+        self.grid_canvas.update_grid(
+            white_cells=data["white_cells_coords"],
+            hunter_cells=data["hunter_cells_coords"],
+            monsters=data["monsters_coords"],
+            foods=data["foods"],
+            homes=data["homes_data"],
+        )
 
-        # 3. Actualizar panel lateral con métricas acumulativas
+        # 3. Actualizar panel lateral con métricas, avisos y gráficos
         self.stats_panel.update_metrics(data)
 
         # 4. Programar siguiente ciclo

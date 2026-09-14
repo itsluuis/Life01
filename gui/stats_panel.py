@@ -1,7 +1,7 @@
 """
-Panel lateral de telemetría y gráficos acumulativos duales (Versión 1.1).
-Muestra indicadores poblacionales (vivas, nacimientos, muertes, HP promedio)
-y dos gráficos de líneas apilados en tiempo real que conservan todo el historial continuo.
+Panel lateral de telemetría, avisos y gráficos acumulativos desglosados (Versión 1.3).
+Muestra indicadores poblacionales (blancas, cazadoras, nacimientos, muertes),
+feed de avisos en tiempo real (2 líneas de eventos históricos) y dos gráficos apilados.
 """
 
 import customtkinter as ctk
@@ -9,7 +9,7 @@ import matplotlib
 matplotlib.use("TkAgg")
 from matplotlib.figure import Figure
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
-from typing import Callable, List, Tuple
+from typing import Callable, List, Tuple, Optional
 
 
 class StatsPanel(ctk.CTkFrame):
@@ -30,7 +30,8 @@ class StatsPanel(ctk.CTkFrame):
         # Listas acumulativas de la generación activa
         self.accum_cycles: List[int] = []
         self.accum_avg_hp: List[float] = []
-        self.accum_population: List[int] = []
+        self.accum_white_pop: List[int] = []
+        self.accum_hunter_pop: List[int] = []
         self.current_gen_id: Optional[int] = None
 
         self._init_ui()
@@ -40,13 +41,13 @@ class StatsPanel(ctk.CTkFrame):
         # 1. Título
         self.header_label = ctk.CTkLabel(
             self,
-            text="DINÁMICA POBLACIONAL v1.1",
+            text="DINÁMICA ECOLÓGICA v1.3",
             font=ctk.CTkFont(size=15, weight="bold"),
             text_color="#38bdf8"
         )
         self.header_label.pack(pady=(10, 2))
 
-        # Tarjeta 1: Ciclo y Generación (Límite 1000 ciclos)
+        # Tarjeta 1: Ciclo y Generación
         self.status_frame = ctk.CTkFrame(self, fg_color="#1e293b", corner_radius=8)
         self.status_frame.pack(fill="x", padx=12, pady=3)
 
@@ -84,14 +85,44 @@ class StatsPanel(ctk.CTkFrame):
         )
         self.day_label.grid(row=2, column=0, columnspan=2, sticky="w", padx=10, pady=(0, 4))
 
-        # Tarjeta 2: Métricas de Población y Salud
+        # Tarjeta 2: Feed de Avisos de 2 Líneas (Terminal de Eventos)
+        self.feed_frame = ctk.CTkFrame(self, fg_color="#0b0f19", corner_radius=8, border_width=1, border_color="#334155")
+        self.feed_frame.pack(fill="x", padx=12, pady=3)
+
+        self.feed_title = ctk.CTkLabel(
+            self.feed_frame,
+            text="📡 FEED DE EVENTOS:",
+            font=ctk.CTkFont(size=10, weight="bold"),
+            text_color="#64748b"
+        )
+        self.feed_title.pack(anchor="w", padx=8, pady=(3, 0))
+
+        self.feed_line1 = ctk.CTkLabel(
+            self.feed_frame,
+            text="-- inicio de simulación v1.3",
+            font=ctk.CTkFont(size=11),
+            text_color="#cbd5e1",
+            anchor="w"
+        )
+        self.feed_line1.pack(fill="x", padx=8, pady=(0, 1))
+
+        self.feed_line2 = ctk.CTkLabel(
+            self.feed_frame,
+            text="-- esperando hitos poblacionales...",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#38bdf8",
+            anchor="w"
+        )
+        self.feed_line2.pack(fill="x", padx=8, pady=(0, 4))
+
+        # Tarjeta 3: Métricas de Población Desglosada y Salud
         self.pop_frame = ctk.CTkFrame(self, fg_color="#1e293b", corner_radius=8)
         self.pop_frame.pack(fill="x", padx=12, pady=3)
 
         self.population_label = ctk.CTkLabel(
             self.pop_frame,
-            text="Población Viva: 1 célula (Máx: 1)",
-            font=ctk.CTkFont(size=13, weight="bold"),
+            text="Población Viva: 1 (⚪ 1 Blancas | 🔵 0 Cazadoras)",
+            font=ctk.CTkFont(size=12, weight="bold"),
             text_color="#22c55e"
         )
         self.population_label.pack(anchor="w", padx=10, pady=(4, 1))
@@ -112,11 +143,11 @@ class StatsPanel(ctk.CTkFrame):
         )
         self.birth_death_label.pack(anchor="w", padx=10, pady=(1, 4))
 
-        # Tarjeta 3: Contenedor para los Dos Gráficos Apilados
+        # Tarjeta 4: Contenedor para los Gráficos Desglosados
         self.chart_frame = ctk.CTkFrame(self, fg_color="#1e293b", corner_radius=8)
         self.chart_frame.pack(fill="both", expand=True, padx=12, pady=3)
 
-        # Tarjeta 4: Controles de Velocidad y Cierre Seguro
+        # Tarjeta 5: Controles de Velocidad y Cierre Seguro
         self.controls_frame = ctk.CTkFrame(self, fg_color="#1e293b", corner_radius=8)
         self.controls_frame.pack(fill="x", padx=12, pady=(3, 10))
 
@@ -176,8 +207,8 @@ class StatsPanel(ctk.CTkFrame):
         self.on_change_speed(delay)
 
     def _init_dual_matplotlib(self):
-        """Inicializa dos subplots apilados (HP Promedio arriba, Población abajo)."""
-        self.fig = Figure(figsize=(3.5, 2.5), dpi=100)
+        """Inicializa dos subplots: HP Promedio arriba, y Blancas vs Cazadoras abajo."""
+        self.fig = Figure(figsize=(3.5, 2.4), dpi=100)
         self.fig.patch.set_facecolor("#1e293b")
 
         # Subplot 1: Promedio de Vida
@@ -191,54 +222,54 @@ class StatsPanel(ctk.CTkFrame):
 
         (self.line_hp,) = self.ax1.plot([], [], color="#38bdf8", linewidth=1.5)
 
-        # Subplot 2: Crecimiento de Población
+        # Subplot 2: Población Desglosada (Blancas vs Cazadoras)
         self.ax2 = self.fig.add_subplot(212)
         self.ax2.set_facecolor("#0f172a")
-        self.ax2.set_title("Crecimiento de Población (Vivas)", color="#22c55e", fontsize=9, pad=3)
+        self.ax2.set_title("Poblacion: Blancas (blanco) vs Cazadoras (azul)", color="#f8fafc", fontsize=9, pad=3)
         self.ax2.set_ylim(0, 5)
         self.ax2.tick_params(colors="#94a3b8", labelsize=7)
         self.ax2.grid(True, linestyle="--", alpha=0.2, color="#475569")
 
-        (self.line_pop,) = self.ax2.plot([], [], color="#22c55e", linewidth=1.5)
+        (self.line_white,) = self.ax2.plot([], [], color="#ffffff", linewidth=1.5, label="Blancas")
+        (self.line_hunter,) = self.ax2.plot([], [], color="#38bdf8", linewidth=1.5, label="Cazadoras")
 
-        self.fig.subplots_adjust(left=0.14, right=0.96, top=0.91, bottom=0.12, hspace=0.45)
+        self.fig.subplots_adjust(left=0.14, right=0.96, top=0.90, bottom=0.12, hspace=0.48)
 
         self.canvas_plot = FigureCanvasTkAgg(self.fig, master=self.chart_frame)
         self.canvas_plot.draw()
         self.canvas_plot.get_tk_widget().pack(fill="both", expand=True, padx=4, pady=4)
 
-    def reset_charts(self):
-        """Limpia los datos acumulados de las gráficas para comenzar una nueva generación."""
-        self.accum_cycles.clear()
-        self.accum_avg_hp.clear()
-        self.accum_population.clear()
-        self.line_hp.set_data([], [])
-        self.line_pop.set_data([], [])
-        self.ax1.set_xlim(0, 15)
-        self.ax2.set_xlim(0, 15)
-        self.ax2.set_ylim(0, 5)
-        self.canvas_plot.draw_idle()
-
     def update_metrics(self, data: dict):
-        """Actualiza la telemetría poblacional y acumula los puntos en los gráficos de la generación."""
+        """Actualiza la telemetría poblacional, feed de avisos y curvas desglosadas."""
         gen_id = data.get("generation_id", 1)
         cycle = data.get("cycle", 0)
         day = data.get("day", 0)
 
-        # Si cambió la generación (por extinción total o límite de ciclos),
-        # se reinician las gráficas para comenzar limpiamente con la nueva generación
+        # Reinicio de gráficos al cambiar de generación
         if self.current_gen_id is not None and (gen_id != self.current_gen_id or (cycle == 0 and len(self.accum_cycles) > 1)):
             self.accum_cycles.clear()
             self.accum_avg_hp.clear()
-            self.accum_population.clear()
+            self.accum_white_pop.clear()
+            self.accum_hunter_pop.clear()
 
         self.current_gen_id = gen_id
         cycles_left = data.get("cycles_left_in_day", 10)
         pop = data.get("population", 1)
+        white_pop = data.get("white_population", pop)
+        hunter_pop = data.get("hunter_population", 0)
         avg_hp = data.get("avg_hp", 2.0)
         max_pop = data.get("max_population", 1)
         births = data.get("births", 0)
         deaths = data.get("deaths", 0)
+        announcements = data.get("recent_announcements", ["-- esperando...", "-- simulación"])
+
+        # Actualizar Feed de Avisos (2 líneas)
+        if len(announcements) >= 2:
+            self.feed_line1.configure(text=announcements[-2])
+            self.feed_line2.configure(text=announcements[-1])
+        elif len(announcements) == 1:
+            self.feed_line1.configure(text="")
+            self.feed_line2.configure(text=announcements[-1])
 
         # Indicadores numéricos
         self.gen_label.configure(text=f"Generación: {gen_id}")
@@ -246,33 +277,33 @@ class StatsPanel(ctk.CTkFrame):
         self.cycle_progress.set(min(1.0, (cycle + 1) / 1000.0))
         self.day_label.configure(text=f"Día {day}  |  Restan en el día: {cycles_left} ciclos")
 
-        # Color de población según estado
         pop_color = "#22c55e" if pop > 1 else ("#38bdf8" if pop == 1 else "#ef4444")
         self.population_label.configure(
-            text=f"Población Viva: {pop} célula{'s' if pop != 1 else ''} (Máx: {max_pop})",
+            text=f"Población: {pop} (⚪ {white_pop} | 🔵 {hunter_pop})",
             text_color=pop_color
         )
         self.hp_avg_label.configure(text=f"Vida Promedio: {avg_hp:.2f} / 2.0 HP")
         self.birth_death_label.configure(text=f"Nacimientos: {births}  |  Fallecimientos: {deaths}")
 
-        # Acumular datos continuamente (sin descartar los anteriores)
+        # Acumular datos
         step_idx = len(self.accum_cycles)
         self.accum_cycles.append(step_idx)
         self.accum_avg_hp.append(avg_hp)
-        self.accum_population.append(pop)
+        self.accum_white_pop.append(white_pop)
+        self.accum_hunter_pop.append(hunter_pop)
 
-        # Redibujado de las curvas acumulativas
+        # Redibujar curvas
         total_pts = len(self.accum_cycles)
         x_vals = list(range(total_pts))
 
         self.line_hp.set_data(x_vals, self.accum_avg_hp)
-        self.line_pop.set_data(x_vals, self.accum_population)
+        self.line_white.set_data(x_vals, self.accum_white_pop)
+        self.line_hunter.set_data(x_vals, self.accum_hunter_pop)
 
-        # Ajustar ejes X e Y para incluir todo el historial acumulado
         self.ax1.set_xlim(0, max(15, total_pts - 1))
         self.ax2.set_xlim(0, max(15, total_pts - 1))
 
-        current_max_pop = max(self.accum_population) if self.accum_population else 1
+        current_max_pop = max(self.accum_white_pop + self.accum_hunter_pop) if self.accum_white_pop else 1
         self.ax2.set_ylim(0, max(5, current_max_pop + 1))
 
         self.canvas_plot.draw_idle()

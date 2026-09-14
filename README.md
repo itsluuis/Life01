@@ -1,24 +1,75 @@
-# Life01 - Simulación de Vida Artificial y Evolución Darwiniana (Versión 1.2)
+# Life01 - Ecosistema Evolutivo: Cazadoras, Monstruos y Civilización (Versión 1.3)
 
-Simulación interactiva de vida artificial donde una colonia de **Células Primordiales con mentes individuales** aprende a explorar una malla de 101x101, competir por comida limitada, regresar a su refugio antes del anochecer y reproducirse con herencia genética y mutación mediante **Aprendizaje por Refuerzo Descentralizado (Q-Learning Individual + Algoritmo Genético)**.
+Simulación interactiva de vida artificial donde una colonia celular evoluciona en un entorno dinámico con especialización biológica por castas, depredadores nocturnos, combate estocástico, construcción de asentamientos y aprendizaje por refuerzo descentralizado (**Q-Learning Individual + Selección Natural**).
+
+---
+
+## ⚔️ Implementaciones de la Versión 1.3 (Ecología Completa)
+
+### 1. Dos Castas Celulares Especializadas
+- **⚪ Células Blancas (Recolectoras / Proletariado)**:
+  - Se alimentan de la comida roja y regresan al hogar más cercano antes de la noche.
+  - Al reproducirse, tienen un **25% de probabilidad de engendrar una Célula Cazadora** por mutación genética (75% Blanca).
+  - No pueden combatir; si son interceptadas por un monstruo, son devoradas de inmediato.
+- **🔵 Células Cazadoras (Guerreras / Arquitectas - Color Celeste `#38bdf8`)**:
+  - Poseen **doble vía de alimentación**: pueden consumir comida roja normal o cazar monstruos para devorarlos.
+  - Al reproducirse, la descendencia tiene **50% de probabilidad de ser Cazadora y 50% de ser Blanca**.
+  - Tienen la habilidad única de **fundar nuevos hogares 5x5** para expandir la civilización.
+
+### 2. 🍷 Monstruos Depredadores (Color Vino Tinto `#881337`)
+- **Aparición y Spawn**:
+  - Al iniciar la generación (Día 0) **siempre aparece 1 monstruo** en un radio de hasta 50 casillas de un hogar.
+  - En cada nuevo día existe un **15% de probabilidad** de que aparezca un monstruo adicional.
+  - Si la colonia elimina a todos los monstruos, tras 1 día sin depredadores reaparece uno automáticamente.
+- **Ciclo de Inanición (3 días)**:
+  - Cada monstruo posee una reserva de vida de **3 días (30 ciclos)**.
+  - Si no devora una célula o destruye un hogar antes de 30 ciclos, muere por inanición.
+  - Al devorar una célula o demoler una casa, reinicia su reserva a 30 ciclos completos.
+- **IA de Instinto Depredador**:
+  - Cuenta con un campo de visión de **8 casillas**.
+  - **Hambre activa**: Si necesita alimentarse, persigue prioritariamente a la célula viva más cercana.
+  - **Saciado**: Si ya comió recientemente, su objetivo prioritario es buscar y demoler un hogar.
+  - Fuera de su rango visual, deambula con inercia estocástica.
+
+### 3. ⚔️ Sistema de Combate y Depredación
+- Cuando una célula cazadora y un monstruo coinciden en casillas adyacentes (distancia Chebyshev == 1):
+  - **45% Gana la Cazadora**: El monstruo es eliminado y devorado. La cazadora queda saciada para pasar el día y recibe una recompensa alta (+5.0) en su cerebro individual.
+  - **45% Gana el Monstruo**: La cazadora es derrotada y devorada. El monstruo reinicia sus 3 días de vida.
+  - **10% Empate**: Ambos sobreviven y continúan el enfrentamiento en el ciclo siguiente.
+
+### 4. 🏛️ Construcción Dinámica de Hogares y Peligro Nocturno
+- **Fundación de Nuevos Hogares**:
+  - Una cazadora alimentada que detecta **al menos 2 células blancas** en un radio 5x5 puede construir un nuevo hogar 5x5 funcional con marco verde.
+  - Probabilidad de construcción con decaimiento según los hogares existentes:
+    $$P(\text{construir}) = \max\left(15\%, \; 100\% \times 0.50^{(\text{hogares} - 1)}\right)$$
+  - Todas las células pueden refugiarse en **cualquiera de los hogares activos** del mapa (orientándose siempre al más cercano).
+- **Demolición con Hibernación**:
+  - Los monstruos atacan los hogares si se encuentran en su área circundante.
+  - Destruir una casa toma **1 ciclo**, sacia al monstruo y lo sume en **hibernación/inmovilidad durante 4 ciclos consecutivos**, otorgando una ventana táctica a las cazadoras.
+- **Actividad Nocturna**:
+  - Los monstruos **no duermen de noche**: continúan activos y cazando en la oscuridad, interceptando células rezagadas o en tránsito entre hogares.
+
+### 5. 🍎 Comida Escalable
+- Para permitir la viabilidad demográfica de colonias grandes sin perder la presión selectiva:
+  $$\text{Comidas diarias} = 2 + \lfloor 0.4 \times \text{Población Total} \rfloor$$
+
+### 6. 📡 Feed de Avisos en Tiempo Real (2 Líneas) y Gráficos Desglosados
+- **Feed de Eventos**: Terminal minimalista en el panel lateral que muestra los hitos acumulados de la generación:
+  - `-- se ha construido un nuevo hogar (Total: X)`
+  - `-- se han eliminado N monstruos (a partir de 5 eliminados)`
+  - `-- han nacido N células blancas (marcas: 50, 100, 200...)`
+  - `-- han nacido N células cazadoras (marcas: 10, 50, 100...)`
+- **Gráfica de Población Desglosada**: Curva blanca para Células Blancas y curva azul celeste para Células Cazadoras en tiempo real.
 
 ---
 
 ## 🧬 Implementaciones de la Versión 1.2 (Cerebros Individuales y Genética)
 
-1. **Mentes Autónomas Individuales**:
-   - Se descartó la mente colmena compartida. Cada célula posee ahora **su propio cerebro individual e independiente** (`QLearningAgent`).
-   - Cada célula observa el entorno desde su posición, toma sus propias decisiones y aprende de sus propios aciertos o errores sin afectar el cerebro de las demás.
-2. **Herencia Genética y Mutación en la Reproducción**:
-   - Cuando una célula come y regresa al hogar al terminar el día, tiene un **50% de probabilidad de reproducirse**.
-   - Al nacer una célula hija, **clona el cerebro de su madre** con una tasa de **mutación estocástica (8% de probabilidad por estado)** en su tabla de decisiones, propiciando la aparición de nuevas estrategias, personalidades y comportamientos diversos.
-3. **Nacimiento Disperso en el Hogar (5x5)**:
-   - Las células hijas nacen en casillas distribuidas dentro del área del hogar, eliminando la superposición exacta en un solo píxel y permitiendo ver con total claridad cómo cada individuo toma caminos y decisiones diferentes.
-4. **Selección Natural y Preservación de la Célula Alfa**:
-   - Al concluir la generación (por extinción total o al llegar al límite de 1000 ciclos), el motor evalúa el *fitness* biológico de todas las células (días sobrevividos, alimentos consumidos y salud restante).
-   - Se selecciona la **Célula Alfa (la más apta)** y se preserva su genoma en `brain.db` para que sea ella quien engendre la primera célula primordial de la siguiente generación.
-5. **Reinicio Limpio de la Nueva Era (Generación 1)**:
-   - Se resguardó un respaldo completo de las versiones anteriores en `backups/pre_v1.2/` y se reinició la generación activa para medir de forma pura la evolución del nuevo linaje de individuos autónomos.
+1. **Mentes Autónomas Individuales**: Cada célula posee su propio cerebro `QLearningAgent` independiente.
+2. **Herencia Genética y Mutación**: Clona el cerebro materno con mutación estocástica (8% por estado).
+3. **Nacimiento Disperso en el Hogar**: Evita superposición en un único píxel.
+4. **Salón de la Fama Top-10 (`brain.db`)**: Poda automática permanente manteniendo la base de datos por debajo de 4 MB tras miles de generaciones.
+5. **Respaldo Versionado**: Resguardo completo de los datos y genomas campeones en `backups/backup_v1.2/`.
 
 ---
 
@@ -26,68 +77,44 @@ Simulación interactiva de vida artificial donde una colonia de **Células Primo
 
 ### 1. La Malla Primordial (101 x 101)
 - **Malla**: Entorno de 10,201 casillas transitables.
-- **Hogar** (🟢 Píxel Verde en `(50, 50)`): Cuenta con una **zona de efecto de 5x5 casillas** delimitada por un marco verde fluorescente (`X, Y ∈ [48, 52]`).
-- **Comida** (🔴 Píxeles Rojos): Aparecen **2 comidas al inicio de cada día** en un radio moderado de 2 a 14 casillas de casa. Si no son consumidas, **caducan a los 3 días (30 ciclos)**.
+- **Hogares** (🟢 Múltiples zonas 5x5 con centro verde brillante y marco esmeralda).
+- **Comida** (🔴 Píxeles Rojos): Cantidad dinámica escalable según población, caduca a los 3 días (30 ciclos).
+- **Monstruos** (🍷 Píxeles Vino Tinto): Depredadores móviles con 8 casillas de visión y 30 ciclos de vida.
 
 ### 2. Ciclos, Días y Generaciones
-- **1 ciclo = 1 acción de movimiento o consumo** (1 segundo base en velocidad 1x).
+- **1 ciclo = 1 acción** (1 segundo base en velocidad 1x).
 - **10 ciclos = 1 día** (ciclos 0 a 9).
 - **1000 ciclos = 1 generación** (100 días de simulación).
-- La generación concluye únicamente si ocurre una **extinción total** (población viva = 0) o si se alcanzan los **1000 ciclos**.
-- Toda nueva generación inicia siempre con **1 sola célula primordial** en el centro `(50, 50)` que hereda el cerebro de la Célula Alfa previa.
+- La generación concluye por **extinción total** o al alcanzar los **1000 ciclos**, preservando al campeón en el Salón de la Fama.
 
-### 3. Salud (HP), Alimentación y Reproducción
-- Cada célula inicia con **2 puntos de vida (HP)** (máximo 2).
-- Para comer, la célula debe ubicarse en una de las 8 casillas circundantes a la comida y ejecutar la acción de "Consumir" (gasta 1 ciclo).
-- Al finalizar el día (cada 10 ciclos):
-  - **Éxito**: Si comió al menos 1 vez y se encuentra dentro del hogar 5x5, sobrevive, recupera 1 HP (si tenía 1) y tiene **50% de probabilidad de reproducirse**.
-  - **Fallo**: Si no comió o quedó fuera del hogar, pierde **1 HP**. Si llega a 0 HP, fallece.
-  - La muerte de una célula individual **no reinicia la simulación** mientras queden compañeras con vida.
-
----
-
-## 📊 Telemetría y Gráficos Acumulativos
-
-En el panel lateral izquierdo se visualizan dos gráficos de líneas apilados en tiempo real:
-- **Gráfico Superior**: Promedio de vida ($HP_{promedio}$) de las células vivas a lo largo de los ciclos de la generación.
-- **Gráfico Inferior**: Crecimiento demográfico ($N$ células vivas) a lo largo del tiempo.
-- **Sostenibilidad**: Durante toda la vida de la generación, los datos se acumulan de forma continua y visible sin borrado hacia la izquierda. Al iniciarse una nueva generación tras la extinción o los 1000 ciclos, los gráficos se reinician limpiamente para evaluar la curva del nuevo linaje.
-
----
-
-## 🧠 Bases de Datos SQLite (Persistencia Dual y Poda Inteligente)
-
-- **`brain.db` (Salón de la Fama Top-10)**: 
-  - Almacena de forma permanente **únicamente los 10 genomas más exitosos de toda la historia** (ordenados por longevidad, alimentación y supervivencia).
-  - Poda automáticamente las generaciones inferiores, garantizando que el archivo nunca sobrepase los **~3 a 5 MB** sin importar cuántos días o semanas corra la simulación de forma ininterrumpida.
-- **`telemetry.db`**: Registra ciclo a ciclo la población viva, HP promedio, nacimientos y muertes para auditoría y visualización histórica.
-- **`backups/`**: Directorio donde se resguardan copias de seguridad de versiones anteriores (protegido por `.gitignore`).
+### 3. Salud (HP), Supervivencia y Reproducción
+- Vida inicial: **2 HP** (máximo 2).
+- Comer requiere estar adyacente a la comida o derrotar a un monstruo (cazadoras).
+- Al anochecer (fin del día):
+  - **Éxito**: Si comió y llegó a cualquiera de los hogares activos, sobrevive, regenera salud y tiene **50% de probabilidad de reproducirse**.
+  - **Fallo**: Si no comió o no alcanzó ningún hogar, pierde **1 HP**. Si llega a 0 HP, muere.
 
 ---
 
 ## 🚀 Ejecución y Controles
 
-Para iniciar la simulación en tu equipo:
+Para iniciar la simulación:
 
 ```bash
 python main.py
 ```
 
 ### Controles de la Interfaz
-- **Pausar / Reanudar**: Detiene o reanuda la simulación en cualquier instante.
-- **Selectores de Velocidad**:
-  - `1x (1s)`: Ritmo en tiempo real (1 segundo por ciclo).
-  - `5x`: Ritmo acelerado (0.2s por ciclo).
-  - `⚡ Turbo`: Máxima velocidad de procesamiento para acelerar la evolución.
-- **Selectores de Zoom**:
-  - `6x`, `7x`, `8x` para escalar dinámicamente el tamaño de la malla en pantalla.
-- **💾 Guardar y Salir**: Pausa la simulación, guarda el genoma de la Célula Alfa en SQLite y cierra de forma segura.
+- **Pausar / Reanudar**: Detiene o reanuda la simulación en cualquier momento.
+- **Velocidades**: `1x (1s)`, `5x` y `⚡ Turbo` (máximo rendimiento computacional).
+- **Zoom**: Botones `6x`, `7x`, `8x` para escalar la malla según la resolución de tu pantalla.
+- **💾 Guardar y Salir**: Pausa, persiste el genoma de la Célula Alfa y finaliza de manera segura.
 
 ---
 
 ## 🧪 Pruebas Automatizadas
 
-Para validar las reglas del juego, herencia genética con mutación, persistencia y la interfaz gráfica:
+Para validar todas las mecánicas ecológicas, combates, mutaciones y la interfaz:
 
 ```bash
 python -m unittest discover tests

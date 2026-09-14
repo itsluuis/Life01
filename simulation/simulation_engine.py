@@ -1,18 +1,15 @@
 """
-Motor de Simulación Multi-Agente con Mentes Propias (Versión 1.2).
-Cada célula piensa y aprende con su propio cerebro independiente.
-Al reproducirse, las hijas heredan el cerebro de su madre con ligeras mutaciones.
-Al concluir la generación, el genoma de la Célula Alfa (más apta) se preserva
-para originar la siguiente generación.
+Motor de Simulación Multi-Agente con Mentes Propias (Versión 1.3 - Ecosistema Completo).
+Orquesta Células Blancas, Células Cazadoras, Monstruos depredadores, combate estocástico,
+construcción dinámica de hogares y registro de hitos evolutivos.
 """
 
 import random
-from typing import Dict, Any, Optional, List, Tuple
-from simulation.cell import PrimordialCell, ACTION_NAMES
-from simulation.environment import (
-    Environment, CENTER_X, CENTER_Y,
-    HOME_MIN_X, HOME_MAX_X, HOME_MIN_Y, HOME_MAX_Y
-)
+from typing import Dict, Any, Optional, List, Tuple, Set
+from simulation.cell import PrimordialCell, CellType, ACTION_NAMES
+from simulation.monster import Monster
+from simulation.environment import Environment, Home, CENTER_X, CENTER_Y
+from simulation.combat import CombatSystem
 from ai.q_agent import QLearningAgent
 from database.brain_db import BrainDB
 from database.telemetry_db import TelemetryDB
@@ -43,9 +40,20 @@ class SimulationEngine:
         self.deaths_this_gen = 0
         self.last_action_desc = "Inicio"
 
+        # Contadores de hitos y feed de avisos (2 líneas)
+        self.total_homes_built = 0
+        self.total_monsters_killed = 0
+        self.total_white_born = 0
+        self.total_hunters_born = 0
+        self.announcements_feed: List[str] = [
+            "-- inicio de nueva era evolutiva v1.3",
+            "-- ecosistema activo con cazadoras y monstruos"
+        ]
+        self.unlocked_milestones: Set[str] = set()
+
         # Cargar linaje de la Célula Alfa previa si existe
         self._load_previous_alpha()
-        # Iniciar Generación 1 con 1 célula primordial
+        # Iniciar Generación 1
         self._start_new_generation(initial=True)
 
     def _load_previous_alpha(self):
@@ -57,13 +65,22 @@ class SimulationEngine:
             self.generation_id = last_gen_id + 1
 
     def _start_new_generation(self, initial: bool = False):
-        """Inicia una nueva generación con 1 célula primordial en (50, 50)."""
+        """Inicia una nueva generación reseteando el entorno e hitos temporales."""
         self.current_cycle = 0
         self.days_survived = 0
         self.births_this_gen = 0
         self.deaths_this_gen = 0
+        self.total_homes_built = 0
+        self.total_monsters_killed = 0
+        self.total_white_born = 0
+        self.total_hunters_born = 0
+        self.unlocked_milestones.clear()
+        self.announcements_feed = [
+            f"-- generación {self.generation_id} iniciada",
+            "-- hogar primordial fundado en el centro"
+        ]
 
-        # Si existe un cerebro Alfa previo, clonarlo para la nueva célula primordial
+        # Clonar cerebro Alfa para la primera célula blanca primordial
         if self.alpha_agent is not None:
             primordial_brain = self.alpha_agent.clone_with_mutation(mutation_rate=0.03, mutation_scale=0.05)
         else:
@@ -74,6 +91,7 @@ class SimulationEngine:
             initial_y=CENTER_Y,
             brain=primordial_brain,
             generation_origin=self.generation_id,
+            cell_type=CellType.WHITE,
         )
 
         self.cells = [primordial]
@@ -81,24 +99,73 @@ class SimulationEngine:
         self.max_population = 1
 
         self.env.reset()
-        self.env.spawn_daily_food(current_cycle=0, count=2)
+        # Al iniciar la generación siempre aparece comida y 1 monstruo a <= 50 casillas
+        self.env.spawn_daily_food(current_cycle=0, population=1)
+        self.env.spawn_monster()
+
+    def _check_milestones(self):
+        """Verifica y despacha avisos de hitos alcanzados al feed de 2 líneas."""
+        # 1. Monstruos eliminados (a partir de 5, en múltiplos de 5)
+        if self.total_monsters_killed >= 5 and (self.total_monsters_killed % 5) == 0:
+            key = f"monster_{self.total_monsters_killed}"
+            if key not in self.unlocked_milestones:
+                self.unlocked_milestones.add(key)
+                self.announcements_feed.append(f"-- se han eliminado {self.total_monsters_killed} monstruos")
+
+        # 2. Nacimientos de Células Blancas (50, 100, 200, 500...)
+        white_marks = [50, 100, 200, 500, 1000]
+        for m in white_marks:
+            if self.total_white_born >= m:
+                key = f"white_{m}"
+                if key not in self.unlocked_milestones:
+                    self.unlocked_milestones.add(key)
+                    self.announcements_feed.append(f"-- han nacido {m} células blancas")
+
+        # 3. Nacimientos de Células Cazadoras (10, 50, 100, 200...)
+        hunter_marks = [10, 50, 100, 200, 500]
+        for m in hunter_marks:
+            if self.total_hunters_born >= m:
+                key = f"hunter_{m}"
+                if key not in self.unlocked_milestones:
+                    self.unlocked_milestones.add(key)
+                    self.announcements_feed.append(f"-- han nacido {m} células cazadoras")
 
     def step(self) -> Dict[str, Any]:
         """
-        Paso de ciclo individualizado:
-        Cada célula viva percibe su propio entorno, consulta su propio cerebro
-        y actualiza su aprendizaje personal.
+        Paso de ciclo individualizado con ecología completa:
+        1. Comida escalable y spawn de monstruos.
+        2. Movimiento y aprendizaje de células.
+        3. Construcción de hogares por cazadoras.
+        4. Movimiento y decisiones de monstruos.
+        5. Combate estocástico y demolición de casas.
+        6. Fin del día (noche) y reproducción con mutación.
         """
-        # 1. Comida diaria en los ciclos 10, 20, 30...
+        alive_count_init = len([c for c in self.cells if c.is_alive])
+
+        # 1. Rutina diaria al inicio de cada nuevo día (ciclos 10, 20, 30...)
         if self.current_cycle > 0 and self.current_cycle % 10 == 0:
-            self.env.spawn_daily_food(self.current_cycle, count=2)
+            # Comida escalable: 2 + floor(0.4 * población)
+            self.env.spawn_daily_food(self.current_cycle, population=alive_count_init)
+
+            # Aparición de monstruos: 15% de probabilidad diaria
+            if random.random() < 0.15:
+                self.env.spawn_monster()
+
+            # Si no quedan monstruos vivos, tras 1 día sin monstruos reaparece 1
+            if len(self.env.monsters) == 0:
+                self.env.days_without_monsters += 1
+                if self.env.days_without_monsters >= 1:
+                    self.env.spawn_monster()
+                    self.env.days_without_monsters = 0
+            else:
+                self.env.days_without_monsters = 0
 
         self.env.update_food_expiration(self.current_cycle)
 
         net_rewards = 0.0
         last_actions: List[str] = []
 
-        # 2. Cada célula actúa y aprende independientemente
+        # 2. Células vivas actúan y aprenden
         for cell in self.cells:
             if not cell.is_alive:
                 continue
@@ -140,22 +207,55 @@ class SimulationEngine:
                 if self.env.is_in_home(cell.x, cell.y) and cell.has_eaten_today:
                     reward += 0.30
 
+            # Mecánica de Construcción de Hogares por Célula Cazadora
+            if cell.can_build_home(self.cells, len(self.env.homes)):
+                new_home = self.env.add_home(cell.x, cell.y)
+                self.total_homes_built += 1
+                self.announcements_feed.append(f"-- se ha construido un nuevo hogar (Total: {len(self.env.homes)})")
+                reward += 2.0  # Refuerzo positivo por erigir civilización
+
             next_state = cell.brain.get_state_key(cell, self.env, self.current_cycle + 1)
-            # Actualiza su propio cerebro individual
             cell.brain.update(state, action, reward, next_state, False)
             net_rewards += reward
 
-            # Monitorear Célula Alfa de la generación
             if self.best_cell_of_gen is None or cell.fitness > self.best_cell_of_gen.fitness:
                 self.best_cell_of_gen = cell
 
-        # 3. Fin del Día (ciclos 9, 19, 29...)
+        # 3. Monstruos se mueven (incluso de noche)
+        for monster in self.env.monsters:
+            monster.step(living_cells=self.cells, active_homes=self.env.homes)
+
+        # 4. Combates e Interacciones Monstruos <-> Células
+        combat_events = CombatSystem.resolve_monster_cell_interactions(
+            self.env.monsters, self.cells, self.env
+        )
+
+        for event in combat_events:
+            ev_type = event["type"]
+            if ev_type == "hunter_won":
+                self.total_monsters_killed += 1
+                self._check_milestones()
+            elif ev_type in ("monster_won", "white_devoured"):
+                self.deaths_this_gen += 1
+
+        # 5. Ataques de Monstruos a Hogares
+        home_attacks = CombatSystem.resolve_monster_home_attacks(
+            self.env.monsters, self.env
+        )
+        for attack in home_attacks:
+            self.announcements_feed.append(f"-- un monstruo demolió un hogar (Restan: {len(self.env.homes)})")
+
+        # Limpiar cadáveres de monstruos
+        self.env.monsters = [m for m in self.env.monsters if m.is_alive]
+        self.cells = [c for c in self.cells if c.is_alive]
+
+        # 6. Fin del Día (Noche, ciclos 9, 19, 29...)
         day_ended = (self.current_cycle % 10) == 9
         if day_ended:
             self.days_survived += 1
             new_daughters: List[PrimordialCell] = []
 
-            for cell in self.cells:
+            for cell in list(self.cells):
                 in_home = self.env.is_in_home(cell.x, cell.y)
                 survived, reason, will_reproduce = cell.resolve_day_end(in_home)
 
@@ -167,13 +267,25 @@ class SimulationEngine:
                         False
                     )
                     if will_reproduce:
-                        # Nacimiento disperso dentro del área del hogar 5x5
-                        # para que no se superpongan en el mismo píxel
-                        spawn_x = random.randint(HOME_MIN_X, HOME_MAX_X)
-                        spawn_y = random.randint(HOME_MIN_Y, HOME_MAX_Y)
+                        # Nace dentro de alguno de los hogares activos (o alrededor de la madre)
+                        if self.env.homes:
+                            target_home = random.choice(self.env.homes)
+                            spawn_x = random.randint(target_home.min_x, target_home.max_x)
+                            spawn_y = random.randint(target_home.min_y, target_home.max_y)
+                        else:
+                            spawn_x = cell.x
+                            spawn_y = cell.y
+
                         daughter = cell.reproduce(spawn_x, spawn_y)
                         new_daughters.append(daughter)
                         self.births_this_gen += 1
+
+                        if daughter.cell_type == CellType.WHITE:
+                            self.total_white_born += 1
+                        else:
+                            self.total_hunters_born += 1
+
+                        self._check_milestones()
                 else:
                     self.deaths_this_gen += 1
                     cell.brain.update(
@@ -188,9 +300,11 @@ class SimulationEngine:
             self.max_population = max(self.max_population, len(self.cells))
 
         alive_count = len(self.cells)
+        white_count = len([c for c in self.cells if c.cell_type == CellType.WHITE])
+        hunter_count = len([c for c in self.cells if c.cell_type == CellType.HUNTER])
         avg_hp = (sum(c.hp for c in self.cells) / alive_count) if alive_count > 0 else 0.0
 
-        # 4. Telemetría del ciclo
+        # 7. Telemetría del ciclo
         current_day = self.current_cycle // 10
         first_x = self.cells[0].x if alive_count > 0 else CENTER_X
         first_y = self.cells[0].y if alive_count > 0 else CENTER_Y
@@ -216,7 +330,7 @@ class SimulationEngine:
         cycle_completed = self.current_cycle
         self.current_cycle += 1
 
-        # 5. Condición de Fin de Generación (1000 ciclos o extinción total)
+        # 8. Condición de Fin de Generación (1000 ciclos o extinción total)
         reached_limit = self.current_cycle >= self.max_cycles_per_gen
         extinct = alive_count == 0
         gen_done = reached_limit or extinct
@@ -229,21 +343,17 @@ class SimulationEngine:
                 else "Extinción total de la población"
             )
 
-            # Seleccionar la Célula Alfa de la generación
             alpha = self.best_cell_of_gen or (self.cells[0] if self.cells else None)
             if alpha is not None:
                 self.alpha_agent = alpha.brain
                 q_to_save = alpha.brain.export_q_table()
                 eps_to_save = alpha.brain.epsilon
                 total_food = alpha.total_food_eaten
-                surv_cycles = (alpha.days_survived * 10)
             else:
                 q_to_save = {}
                 eps_to_save = 0.5
                 total_food = 0
-                surv_cycles = cycle_completed + 1
 
-            # Persistir cerebro de la Célula Alfa
             self.brain_db.save_generation(
                 generation_id=self.generation_id,
                 q_table=q_to_save,
@@ -254,7 +364,6 @@ class SimulationEngine:
                 death_reason=death_reason,
             )
 
-            # Persistir resumen en telemetría
             self.telemetry_db.log_generation_summary(
                 generation_id=self.generation_id,
                 total_cycles=cycle_completed + 1,
@@ -279,11 +388,14 @@ class SimulationEngine:
                 "reason": death_reason,
             }
 
-            # Iniciar siguiente generación con genoma Alfa
             self.generation_id += 1
             self._start_new_generation()
 
-        cell_coords = [(c.x, c.y) for c in self.cells if c.is_alive]
+        # Coordenadas detalladas para renderizado Canvas
+        white_coords = [(c.x, c.y) for c in self.cells if c.is_alive and c.cell_type == CellType.WHITE]
+        hunter_coords = [(c.x, c.y) for c in self.cells if c.is_alive and c.cell_type == CellType.HUNTER]
+        monster_coords = [(m.x, m.y) for m in self.env.monsters if m.is_alive]
+        homes_data = [(h.center_x, h.center_y, h.min_x, h.min_y, h.max_x, h.max_y) for h in self.env.homes]
 
         return {
             "generation_id": self.generation_id if not gen_done else self.generation_id - 1,
@@ -292,15 +404,25 @@ class SimulationEngine:
             "day": current_day,
             "cycles_left_in_day": 10 - (cycle_completed % 10),
             "population": alive_count,
+            "white_population": white_count,
+            "hunter_population": hunter_count,
             "avg_hp": avg_hp,
             "max_population": self.max_population,
             "births": self.births_this_gen,
             "deaths": self.deaths_this_gen,
-            "cells_coords": cell_coords,
+            "cells_coords": [(c.x, c.y) for c in self.cells if c.is_alive],
+            "white_cells_coords": white_coords,
+            "hunter_cells_coords": hunter_coords,
+            "monsters_coords": monster_coords,
+            "homes_data": homes_data,
             "foods": [(f.x, f.y) for f in self.env.foods],
             "gen_done": gen_done,
             "gen_transition": gen_transition_info,
             "days_survived": self.days_survived,
+            "recent_announcements": self.announcements_feed[-2:] if self.announcements_feed else [
+                "-- esperando eventos...",
+                "-- simulación activa"
+            ],
         }
 
     def save_and_close(self):
