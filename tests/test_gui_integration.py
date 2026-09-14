@@ -58,6 +58,22 @@ class TestGUIIntegration(unittest.TestCase):
         # Probar guardado y salida seguro
         app.on_save_and_exit()
 
+    def test_chart_reset_on_new_generation(self):
+        app = LifeApp(engine=self.engine)
+        app.update()
+
+        # Simular datos de generación 1
+        app.stats_panel.update_metrics({"generation_id": 1, "cycle": 1, "population": 1, "avg_hp": 2.0})
+        app.stats_panel.update_metrics({"generation_id": 1, "cycle": 2, "population": 2, "avg_hp": 2.0})
+        self.assertEqual(len(app.stats_panel.accum_cycles), 2)
+
+        # Simular inicio de generación 2 (por extinción o límite de ciclos)
+        app.stats_panel.update_metrics({"generation_id": 2, "cycle": 0, "population": 1, "avg_hp": 2.0})
+        # Al iniciar la gen 2, se limpia y solo contiene el nuevo punto del ciclo 0
+        self.assertEqual(len(app.stats_panel.accum_cycles), 1)
+
+        app.on_save_and_exit()
+
 
 if __name__ == "__main__":
     unittest.main()

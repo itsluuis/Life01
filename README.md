@@ -19,10 +19,10 @@ Simulación interactiva de vida artificial donde una población de **Células Pr
    - Si muere una célula individual, la simulación **no se reinicia**; continúa mientras exista al menos una célula viva.
    - La generación solo concluye si ocurre una **extinción total** (0 células vivas) o si se alcanzan los 1000 ciclos.
    - Cada nueva generación arranca siempre desde el ciclo 0 con **1 sola célula primordial en el centro `(50, 50)`** para medir el crecimiento demográfico de forma estandarizada.
-5. **Gráficos Acumulativos Duales (Sin Borrado)**:
-   - **Gráfico Superior**: Promedio de vida ($HP_{promedio}$) acumulado a lo largo de todo el recorrido.
-   - **Gráfico Inferior**: Crecimiento de la población ($N$ células vivas) acumulado a lo largo del tiempo.
-   - Los datos **no se borran ni se desplazan a la izquierda**, permitiendo observar la evolución temporal completa de las simulaciones.
+5. **Gráficos Acumulativos por Generación (Sostenibles)**:
+   - **Gráfico Superior**: Promedio de vida ($HP_{promedio}$) acumulado a lo largo de la generación activa.
+   - **Gráfico Inferior**: Crecimiento de la población ($N$ células vivas) acumulado a lo largo de los ciclos.
+   - **Acumulación y Reinicio Sostenible**: Los datos se conservan y acumulan visiblemente durante toda la vida de la generación sin borrado a la izquierda. Al producirse la **extinción total** o alcanzarse el **límite de 1000 ciclos**, los gráficos se reinician limpiamente para evaluar el desempeño y curva de crecimiento de la nueva generación desde el ciclo 0.
 
 ---
 

@@ -27,10 +27,11 @@ class StatsPanel(ctk.CTkFrame):
         self.on_change_speed = on_change_speed
         self.on_save_and_exit = on_save_and_exit
 
-        # Listas acumulativas completas (no se borran ni desplazan)
+        # Listas acumulativas de la generación activa
         self.accum_cycles: List[int] = []
         self.accum_avg_hp: List[float] = []
         self.accum_population: List[int] = []
+        self.current_gen_id: Optional[int] = None
 
         self._init_ui()
         self._init_dual_matplotlib()
@@ -206,11 +207,32 @@ class StatsPanel(ctk.CTkFrame):
         self.canvas_plot.draw()
         self.canvas_plot.get_tk_widget().pack(fill="both", expand=True, padx=4, pady=4)
 
+    def reset_charts(self):
+        """Limpia los datos acumulados de las gráficas para comenzar una nueva generación."""
+        self.accum_cycles.clear()
+        self.accum_avg_hp.clear()
+        self.accum_population.clear()
+        self.line_hp.set_data([], [])
+        self.line_pop.set_data([], [])
+        self.ax1.set_xlim(0, 15)
+        self.ax2.set_xlim(0, 15)
+        self.ax2.set_ylim(0, 5)
+        self.canvas_plot.draw_idle()
+
     def update_metrics(self, data: dict):
-        """Actualiza la telemetría poblacional y acumula los puntos en los gráficos."""
+        """Actualiza la telemetría poblacional y acumula los puntos en los gráficos de la generación."""
         gen_id = data.get("generation_id", 1)
         cycle = data.get("cycle", 0)
         day = data.get("day", 0)
+
+        # Si cambió la generación (por extinción total o límite de ciclos),
+        # se reinician las gráficas para comenzar limpiamente con la nueva generación
+        if self.current_gen_id is not None and (gen_id != self.current_gen_id or (cycle == 0 and len(self.accum_cycles) > 1)):
+            self.accum_cycles.clear()
+            self.accum_avg_hp.clear()
+            self.accum_population.clear()
+
+        self.current_gen_id = gen_id
         cycles_left = data.get("cycles_left_in_day", 10)
         pop = data.get("population", 1)
         avg_hp = data.get("avg_hp", 2.0)

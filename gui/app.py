@@ -166,6 +166,7 @@ class LifeApp(ctk.CTk):
         if self._loop_after_id:
             try:
                 self.after_cancel(self._loop_after_id)
+                self._loop_after_id = None
             except Exception:
                 pass
 
@@ -176,4 +177,8 @@ class LifeApp(ctk.CTk):
         except Exception as e:
             print(f"Aviso durante guardado: {e}")
 
+        try:
+            self.update_idletasks()
+        except Exception:
+            pass
         self.destroy()
