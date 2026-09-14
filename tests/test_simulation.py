@@ -110,6 +110,25 @@ class TestLifeSimulation(unittest.TestCase):
         self.assertTrue(consumed)
         self.assertEqual(len(env.foods), 0)
 
+    def test_brain_hall_of_fame_pruning(self):
+        # Insertar 15 generaciones para probar la poda automática al Top 10
+        for i in range(1, 16):
+            self.brain_db.save_generation(
+                generation_id=i,
+                q_table={"state": [float(i)]},
+                epsilon=0.1,
+                total_cycles=i * 10,
+                days_survived=i,
+                food_eaten=i,
+                death_reason="Test",
+            )
+        # Debe mantenerse estrictamente en 10 genomas
+        self.assertEqual(self.brain_db.get_total_generations_count(), 10)
+        # El cerebro cargado debe ser el del campeón invicto (Gen 15 con 15 días)
+        loaded = self.brain_db.load_latest_generation()
+        self.assertIsNotNone(loaded)
+        self.assertEqual(loaded[0], 15)
+
     def test_individual_brain_inheritance_and_mutation(self):
         mother = PrimordialCell(50, 50)
         mother.brain.q_table["test_state"] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]

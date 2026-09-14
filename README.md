@@ -55,10 +55,12 @@ En el panel lateral izquierdo se visualizan dos gráficos de líneas apilados en
 
 ---
 
-## 🧠 Bases de Datos SQLite (Persistencia Dual)
+## 🧠 Bases de Datos SQLite (Persistencia Dual y Poda Inteligente)
 
-- **`brain.db`**: Almacena las tablas de decisión Q-Learning del genoma de la Célula Alfa, tasa de exploración ($\epsilon$) y balances generacionales.
-- **`telemetry.db`**: Registra ciclo a ciclo la población viva, HP promedio, nacimientos y muertes para auditoría y visualización.
+- **`brain.db` (Salón de la Fama Top-10)**: 
+  - Almacena de forma permanente **únicamente los 10 genomas más exitosos de toda la historia** (ordenados por longevidad, alimentación y supervivencia).
+  - Poda automáticamente las generaciones inferiores, garantizando que el archivo nunca sobrepase los **~3 a 5 MB** sin importar cuántos días o semanas corra la simulación de forma ininterrumpida.
+- **`telemetry.db`**: Registra ciclo a ciclo la población viva, HP promedio, nacimientos y muertes para auditoría y visualización histórica.
 - **`backups/`**: Directorio donde se resguardan copias de seguridad de versiones anteriores (protegido por `.gitignore`).
 
 ---

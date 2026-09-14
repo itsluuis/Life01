@@ -1,7 +1,8 @@
 """
 Base de datos SQLite para la persistencia del conocimiento de la IA (Cerebro generacional).
-Permite almacenar la Q-table y los metadatos de las generaciones para que el aprendizaje
-persista entre sesiones.
+Implementa la arquitectura 'Salón de la Fama' (Top-10): solo conserva las 10 mejores
+generaciones de toda la historia, manteniendo el archivo siempre por debajo de ~4 MB
+sin importar cuántos días o semanas corra la simulación.
 """
 
 import sqlite3
@@ -10,6 +11,7 @@ import os
 from typing import Dict, Any, Optional, Tuple
 
 DB_PATH = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "brain.db")
+MAX_HALL_OF_FAME = 10  # Límite estricto de genomas campeones almacenados
 
 
 class BrainDB:
@@ -54,25 +56,13 @@ class BrainDB:
         food_eaten: int,
         death_reason: str,
     ):
-        """Guarda los resultados y la tabla Q de una generación recién finalizada."""
-        q_table_serialized = json.dumps(q_table)
+        """
+        Evalúa si la generación califica para ingresar al Salón de la Fama (Top-10).
+        Si califica, la almacena y depura las inferiores para evitar que la base de datos
+        crezca descontroladamente en disco.
+        """
         with self._conn:
-            self._conn.execute(
-                """
-                INSERT OR REPLACE INTO brains 
-                (generation_id, q_table_json, epsilon, total_cycles, days_survived, food_eaten, death_reason)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
-                    generation_id,
-                    q_table_serialized,
-                    epsilon,
-                    total_cycles,
-                    days_survived,
-                    food_eaten,
-                    death_reason,
-                ),
-            )
+            # Siempre registrar el último ID de generación
             self._conn.execute(
                 """
                 INSERT OR REPLACE INTO global_metadata (key, value)
@@ -81,33 +71,79 @@ class BrainDB:
                 (str(generation_id),),
             )
 
+            # Contar cuántos cerebros hay en el salón
+            cursor = self._conn.cursor()
+            cursor.execute("SELECT COUNT(*) FROM brains")
+            count = cursor.fetchone()[0]
+
+            should_insert = False
+            if count < MAX_HALL_OF_FAME:
+                should_insert = True
+            else:
+                # Comprobar si supera al peor del Top 10
+                cursor.execute(
+                    """
+                    SELECT days_survived, food_eaten FROM brains
+                    ORDER BY days_survived DESC, food_eaten DESC, total_cycles DESC
+                    LIMIT 1 OFFSET ?
+                    """,
+                    (MAX_HALL_OF_FAME - 1,),
+                )
+                worst_in_top = cursor.fetchone()
+                if worst_in_top:
+                    w_days, w_food = worst_in_top
+                    if days_survived > w_days or (days_survived == w_days and food_eaten >= w_food):
+                        should_insert = True
+
+            if should_insert:
+                q_table_serialized = json.dumps(q_table)
+                self._conn.execute(
+                    """
+                    INSERT OR REPLACE INTO brains 
+                    (generation_id, q_table_json, epsilon, total_cycles, days_survived, food_eaten, death_reason)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
+                        generation_id,
+                        q_table_serialized,
+                        epsilon,
+                        total_cycles,
+                        days_survived,
+                        food_eaten,
+                        death_reason,
+                    ),
+                )
+
+                # Podar cualquier registro fuera del Top-10
+                self._conn.execute(
+                    f"""
+                    DELETE FROM brains WHERE generation_id NOT IN (
+                        SELECT generation_id FROM brains
+                        ORDER BY days_survived DESC, food_eaten DESC, total_cycles DESC
+                        LIMIT {MAX_HALL_OF_FAME}
+                    )
+                    """
+                )
+
     def load_latest_generation(self) -> Optional[Tuple[int, Dict[str, list], float]]:
         """
-        Carga la última generación guardada.
-        Retorna (generation_id, q_table, epsilon) o None si no hay registros.
+        Carga el cerebro de la Célula Alfa más exitosa del Salón de la Fama.
+        Retorna (generation_id, q_table, epsilon) o None si está vacía.
         """
         cursor = self._conn.cursor()
-        cursor.execute("SELECT value FROM global_metadata WHERE key = 'last_generation_id'")
-        row = cursor.fetchone()
-        if not row:
-            cursor.execute(
-                "SELECT generation_id, q_table_json, epsilon FROM brains ORDER BY generation_id DESC LIMIT 1"
-            )
-            brain_row = cursor.fetchone()
-            if brain_row:
-                gen_id, q_json, eps = brain_row
-                return gen_id, json.loads(q_json), eps
-            return None
-
-        last_gen_id = int(row[0])
         cursor.execute(
-            "SELECT generation_id, q_table_json, epsilon FROM brains WHERE generation_id = ?",
-            (last_gen_id,),
+            """
+            SELECT generation_id, q_table_json, epsilon 
+            FROM brains 
+            ORDER BY days_survived DESC, food_eaten DESC, total_cycles DESC 
+            LIMIT 1
+            """
         )
         brain_row = cursor.fetchone()
         if brain_row:
             gen_id, q_json, eps = brain_row
             return gen_id, json.loads(q_json), eps
+
         return None
 
     def get_total_generations_count(self) -> int:
