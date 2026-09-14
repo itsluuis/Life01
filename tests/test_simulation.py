@@ -110,6 +110,19 @@ class TestLifeSimulation(unittest.TestCase):
         self.assertTrue(consumed)
         self.assertEqual(len(env.foods), 0)
 
+    def test_individual_brain_inheritance_and_mutation(self):
+        mother = PrimordialCell(50, 50)
+        mother.brain.q_table["test_state"] = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0]
+        
+        # Reproducción con clonación y mutación
+        daughter = mother.reproduce(51, 51)
+        self.assertNotEqual(mother.cell_id, daughter.cell_id)
+        self.assertIsNot(mother.brain, daughter.brain)
+        self.assertIn("test_state", daughter.brain.q_table)
+        # La tabla debe ser similar pero independiente
+        mother.brain.q_table["test_state"][0] = 999.0
+        self.assertNotEqual(daughter.brain.q_table["test_state"][0], 999.0)
+
     def test_simulation_engine_population_dynamics(self):
         engine = SimulationEngine(brain_db=self.brain_db, telemetry_db=self.telemetry_db)
         self.assertEqual(len(engine.cells), 1)

@@ -1,11 +1,12 @@
 """
-Módulo de la Célula Primordial (Versión 1.1).
-Maneja posición, vida (HP), nutrición, movimiento en vecindad de Moore
-y capacidad de reproducción con probabilidad del 50%.
+Módulo de la Célula Primordial (Versión 1.2 - Individuo Autónomo).
+Cada célula posee su propio cerebro (Q-Learning independiente), parámetros de salud,
+contador de supervivencia y capacidad de engendrar hijas que heredan su cerebro con mutación.
 """
 
 import random
-from typing import Tuple
+from typing import Tuple, Optional
+from ai.q_agent import QLearningAgent
 
 MOORE_DIRECTIONS = [
     (0, -1),   # 0: Arriba (N)
@@ -28,7 +29,15 @@ ACTION_NAMES = [
 class PrimordialCell:
     _id_counter = 1
 
-    def __init__(self, initial_x: int = 50, initial_y: int = 50, grid_size: int = 101, cell_id: int = None):
+    def __init__(
+        self,
+        initial_x: int = 50,
+        initial_y: int = 50,
+        grid_size: int = 101,
+        cell_id: Optional[int] = None,
+        brain: Optional[QLearningAgent] = None,
+        generation_origin: int = 1,
+    ):
         if cell_id is None:
             self.cell_id = PrimordialCell._id_counter
             PrimordialCell._id_counter += 1
@@ -40,12 +49,22 @@ class PrimordialCell:
         self.initial_y = initial_y
         self.x = initial_x
         self.y = initial_y
-        self.hp = 2  # Inicia con 2 puntos de vida (máx 2)
+        self.hp = 2
         self.max_hp = 2
         self.has_eaten_today = False
         self.food_eaten_today = 0
         self.total_food_eaten = 0
+        self.days_survived = 0
         self.is_alive = True
+        self.generation_origin = generation_origin
+
+        # Cerebro individual autónomo de esta célula
+        self.brain = brain if brain is not None else QLearningAgent()
+
+    @property
+    def fitness(self) -> float:
+        """Puntaje de aptitud biológica para la selección natural de la Célula Alfa."""
+        return (self.days_survived * 50.0) + (self.total_food_eaten * 30.0) + (self.hp * 10.0)
 
     def move(self, direction_idx: int):
         """Mueve la célula en una de las 8 direcciones circundantes dentro de la malla."""
@@ -64,15 +83,13 @@ class PrimordialCell:
     def resolve_day_end(self, in_home_zone: bool) -> Tuple[bool, str, bool]:
         """
         Evalúa el fin del día (cada 10 ciclos).
-        Reglas:
-        - Si comió y está en el hogar: sobrevive, recupera 1 HP (si tenía 1) y tiene 50% de reproducirse.
-        - Si no comió o no llegó al hogar: pierde 1 HP. Si llega a 0 HP, muere.
         Retorna (sobrevivió, motivo, se_reproduce).
         """
         success = self.has_eaten_today and in_home_zone
         will_reproduce = False
 
         if success:
+            self.days_survived += 1
             if self.hp < self.max_hp:
                 self.hp = min(self.max_hp, self.hp + 1)
             reason = "Día completado con éxito (alimentada y en hogar)."
@@ -89,7 +106,6 @@ class PrimordialCell:
             else:
                 reason = "Falló el día: comió pero no regresó al hogar a tiempo."
 
-        # Reiniciar estado nutricional para el siguiente día
         self.has_eaten_today = False
         self.food_eaten_today = 0
 
@@ -99,3 +115,18 @@ class PrimordialCell:
             return False, f"Murió: {reason}", False
 
         return True, reason, will_reproduce
+
+    def reproduce(self, spawn_x: int, spawn_y: int) -> "PrimordialCell":
+        """
+        Engendra una célula hija que hereda una copia clonada y mutada de su cerebro,
+        permitiendo que evolucione con una personalidad y estrategias propias.
+        """
+        daughter_brain = self.brain.clone_with_mutation(mutation_rate=0.08, mutation_scale=0.15)
+        daughter = PrimordialCell(
+            initial_x=spawn_x,
+            initial_y=spawn_y,
+            grid_size=self.grid_size,
+            brain=daughter_brain,
+            generation_origin=self.generation_origin,
+        )
+        return daughter
