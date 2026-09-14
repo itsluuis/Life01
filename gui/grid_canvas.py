@@ -75,38 +75,60 @@ class GridCanvas(tk.Canvas):
         # Limpiar elementos dinámicos
         self.delete("all")
 
-        # 1. Dibujar todos los hogares activos (5x5)
-        for hx, hy, min_x, min_y, max_x, max_y in homes:
-            x0 = min_x * cs
-            y0 = min_y * cs
-            x1 = (max_x + 1) * cs
-            y1 = (max_y + 1) * cs
+        # 1. Dibujar todos los hogares activos (con áreas unificadas sin bugs visuales)
+        for h_info in homes:
+            if isinstance(h_info, dict):
+                tiles = set(tuple(t) for t in h_info["tiles"])
+                centers = h_info.get("centers", [])
+            elif hasattr(h_info, "tiles"):
+                tiles = set(tuple(t) for t in h_info.tiles)
+                centers = h_info.centers
+            else:
+                hx, hy, min_x, min_y, max_x, max_y = h_info
+                tiles = {(x, y) for x in range(min_x, max_x + 1) for y in range(min_y, max_y + 1)}
+                centers = [(hx, hy)]
 
-            # Relleno verde bosque
-            self.create_rectangle(
-                x0, y0, x1, y1,
-                fill="#064e3b",
-                outline="",
-                tags="home"
-            )
+            # A. Rellenar cada baldosa del territorio del hogar
+            for tx, ty in tiles:
+                x0 = tx * cs
+                y0 = ty * cs
+                self.create_rectangle(
+                    x0, y0, x0 + cs, y0 + cs,
+                    fill="#064e3b",
+                    outline="",
+                    tags="home"
+                )
 
-            # Marco exterior verde esmeralda
-            self.create_rectangle(
-                x0, y0, x1, y1,
-                outline="#10b981",
-                width=2,
-                tags="home"
-            )
+            # B. Trazar bordes exteriores ÚNICAMENTE en el perímetro exterior que da hacia afuera
+            for tx, ty in tiles:
+                x0 = tx * cs
+                y0 = ty * cs
+                x1 = x0 + cs
+                y1 = y0 + cs
 
-            # Núcleo / centro de la casa
-            cx0 = hx * cs
-            cy0 = hy * cs
-            self.create_rectangle(
-                cx0, cy0, cx0 + cs, cy0 + cs,
-                fill="#22c55e",
-                outline="",
-                tags="home"
-            )
+                # Borde Norte
+                if (tx, ty - 1) not in tiles:
+                    self.create_line(x0, y0, x1, y0, fill="#10b981", width=2, tags="home")
+                # Borde Sur
+                if (tx, ty + 1) not in tiles:
+                    self.create_line(x0, y1, x1, y1, fill="#10b981", width=2, tags="home")
+                # Borde Oeste
+                if (tx - 1, ty) not in tiles:
+                    self.create_line(x0, y0, x0, y1, fill="#10b981", width=2, tags="home")
+                # Borde Este
+                if (tx + 1, ty) not in tiles:
+                    self.create_line(x1, y0, x1, y1, fill="#10b981", width=2, tags="home")
+
+            # C. Dibujar los núcleos/centros del asentamiento
+            for cx, cy in centers:
+                cx0 = cx * cs
+                cy0 = cy * cs
+                self.create_rectangle(
+                    cx0, cy0, cx0 + cs, cy0 + cs,
+                    fill="#22c55e",
+                    outline="",
+                    tags="home"
+                )
 
         # 2. Dibujar comidas en rojo brillante
         for fx, fy in foods:

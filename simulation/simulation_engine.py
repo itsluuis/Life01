@@ -209,9 +209,12 @@ class SimulationEngine:
 
             # Mecánica de Construcción de Hogares por Célula Cazadora
             if cell.can_build_home(self.cells, len(self.env.homes)):
-                new_home = self.env.add_home(cell.x, cell.y)
+                result_home, was_merged = self.env.add_home(cell.x, cell.y)
                 self.total_homes_built += 1
-                self.announcements_feed.append(f"-- se ha construido un nuevo hogar (Total: {len(self.env.homes)})")
+                if was_merged:
+                    self.announcements_feed.append(f"-- un hogar se unió y expandió la colonia (Total: {len(self.env.homes)})")
+                else:
+                    self.announcements_feed.append(f"-- se ha construido un nuevo hogar (Total: {len(self.env.homes)})")
                 reward += 2.0  # Refuerzo positivo por erigir civilización
 
             next_state = cell.brain.get_state_key(cell, self.env, self.current_cycle + 1)
@@ -395,7 +398,19 @@ class SimulationEngine:
         white_coords = [(c.x, c.y) for c in self.cells if c.is_alive and c.cell_type == CellType.WHITE]
         hunter_coords = [(c.x, c.y) for c in self.cells if c.is_alive and c.cell_type == CellType.HUNTER]
         monster_coords = [(m.x, m.y) for m in self.env.monsters if m.is_alive]
-        homes_data = [(h.center_x, h.center_y, h.min_x, h.min_y, h.max_x, h.max_y) for h in self.env.homes]
+        homes_data = [
+            {
+                "tiles": list(h.tiles),
+                "centers": list(h.centers),
+                "center_x": h.center_x,
+                "center_y": h.center_y,
+                "min_x": h.min_x,
+                "min_y": h.min_y,
+                "max_x": h.max_x,
+                "max_y": h.max_y,
+            }
+            for h in self.env.homes
+        ]
 
         return {
             "generation_id": self.generation_id if not gen_done else self.generation_id - 1,

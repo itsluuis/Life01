@@ -20,44 +20,79 @@ FOOD_LIFETIME_CYCLES = 30  # 3 días = 30 ciclos
 
 
 class Home:
-    """Representa un asentamiento u hogar de 5x5 casillas."""
+    """Representa un asentamiento u hogar (individual o fusionado) de casillas."""
     _id_counter = 1
 
-    def __init__(self, center_x: int, center_y: int):
+    def __init__(
+        self,
+        center_x: int,
+        center_y: int,
+        tiles: Optional[Any] = None,
+        centers: Optional[List[Tuple[int, int]]] = None
+    ):
         self.home_id = Home._id_counter
         Home._id_counter += 1
         self.center_x = center_x
         self.center_y = center_y
-        self.min_x = center_x - 2
-        self.max_x = center_x + 2
-        self.min_y = center_y - 2
-        self.max_y = center_y + 2
+
+        if centers is not None:
+            self.centers = list(centers)
+        else:
+            self.centers = [(center_x, center_y)]
+
+        if tiles is not None:
+            self.tiles = set(tiles)
+        else:
+            # 5x5 inicial alrededor de (center_x, center_y)
+            self.tiles = {
+                (center_x + dx, center_y + dy)
+                for dx in range(-2, 3)
+                for dy in range(-2, 3)
+            }
+
+        self._update_bounds()
+
+    def _update_bounds(self):
+        """Actualiza el bounding box y el área circundante del hogar."""
+        xs = [x for x, y in self.tiles]
+        ys = [y for x, y in self.tiles]
+        self.min_x = min(xs)
+        self.max_x = max(xs)
+        self.min_y = min(ys)
+        self.max_y = max(ys)
+
+        # Baldosas circundantes para detección de ataques (adyacencia Chebyshev <= 1)
+        self.surrounding_tiles = {
+            (tx + dx, ty + dy)
+            for tx, ty in self.tiles
+            for dx in (-1, 0, 1)
+            for dy in (-1, 0, 1)
+        }
+
+    def merge_with(self, other: "Home"):
+        """Fusiona otro hogar con este, uniendo sus territorios y núcleos sin solapamientos raros."""
+        self.tiles.update(other.tiles)
+        for c in other.centers:
+            if c not in self.centers:
+                self.centers.append(c)
+        self._update_bounds()
 
     def is_inside(self, x: int, y: int) -> bool:
-        """Verifica si las coordenadas (x, y) están dentro del área 5x5."""
-        return self.min_x <= x <= self.max_x and self.min_y <= y <= self.max_y
+        """Verifica si las coordenadas (x, y) están dentro del territorio del hogar."""
+        return (x, y) in self.tiles
 
     def is_in_surrounding_area(self, x: int, y: int) -> bool:
-        """Verifica si (x, y) está dentro o en el perímetro adyacente (distancia Chebyshev <= 1 del borde)."""
-        return (self.min_x - 1) <= x <= (self.max_x + 1) and (self.min_y - 1) <= y <= (self.max_y + 1)
+        """Verifica si (x, y) está dentro o en el perímetro adyacente del hogar."""
+        return (x, y) in self.surrounding_tiles
 
     def distance_to(self, x: int, y: int) -> int:
-        """Calcula la distancia de Chebyshev desde (x, y) al borde del área 5x5."""
-        if self.is_inside(x, y):
+        """Calcula la distancia mínima de Chebyshev a cualquier baldosa del hogar."""
+        if (x, y) in self.tiles:
             return 0
-        dx = 0
-        if x < self.min_x:
-            dx = self.min_x - x
-        elif x > self.max_x:
-            dx = x - self.max_x
-
-        dy = 0
-        if y < self.min_y:
-            dy = self.min_y - y
-        elif y > self.max_y:
-            dy = y - self.max_y
-
-        return max(dx, dy)
+        box_dist = max(0, self.min_x - x, x - self.max_x, self.min_y - y, y - self.max_y)
+        if box_dist > 5:
+            return box_dist
+        return min(max(abs(x - tx), abs(y - ty)) for tx, ty in self.tiles)
 
 
 class FoodItem:
@@ -120,14 +155,43 @@ class Environment:
         _, dist = self.get_closest_home(x, y)
         return dist
 
-    def add_home(self, center_x: int, center_y: int) -> Home:
-        """Crea y añade un nuevo hogar 5x5 centrado en (center_x, center_y)."""
-        # Limitar dentro de los bordes del mapa
+    def add_home(self, center_x: int, center_y: int) -> Tuple[Home, bool]:
+        """
+        Crea o fusiona un nuevo hogar 5x5 centrado en (center_x, center_y).
+        Si colisiona o se solapa con el área de efecto de uno o más hogares existentes,
+        se une a ellos formando un asentamiento continuo unificado sin bugs visuales.
+        Retorna (hogar_resultante, fue_fusionado).
+        """
         cx = max(2, min(self.grid_size - 3, center_x))
         cy = max(2, min(self.grid_size - 3, center_y))
-        new_home = Home(cx, cy)
-        self.homes.append(new_home)
-        return new_home
+
+        new_tiles = {
+            (cx + dx, cy + dy)
+            for dx in range(-2, 3)
+            for dy in range(-2, 3)
+        }
+
+        # Buscar todos los hogares existentes que colisionen o solapen con las nuevas baldosas
+        colliding_homes = [h for h in self.homes if bool(h.tiles & new_tiles)]
+
+        if not colliding_homes:
+            new_home = Home(cx, cy, tiles=new_tiles, centers=[(cx, cy)])
+            self.homes.append(new_home)
+            return new_home, False
+        else:
+            primary_home = colliding_homes[0]
+            primary_home.tiles.update(new_tiles)
+            if (cx, cy) not in primary_home.centers:
+                primary_home.centers.append((cx, cy))
+
+            # Fusionar cualquier otro hogar que haya quedado conectado
+            for other_home in colliding_homes[1:]:
+                primary_home.merge_with(other_home)
+                if other_home in self.homes:
+                    self.homes.remove(other_home)
+
+            primary_home._update_bounds()
+            return primary_home, True
 
     def remove_home(self, home: Home) -> bool:
         """Destruye un hogar (tras el ataque exitoso de un monstruo)."""
@@ -175,24 +239,47 @@ class Environment:
 
         return spawned
 
-    def spawn_monster(self, near_home: Optional[Home] = None) -> Monster:
+    def spawn_monster(self, near_home: Optional[Any] = None) -> Monster:
         """
-        Genera un monstruo en un radio de hasta 50 casillas alrededor de un hogar.
+        Genera un monstruo asegurando que NO aparezca en un radio de 25 casillas
+        de ningún hogar activo (evita que aparezca de la nada cerca de una civilización y la termine muy rápido).
+        Rango objetivo preferente: entre 25 y 50 casillas de distancia.
         """
-        if near_home is None:
-            near_home = random.choice(self.homes) if self.homes else Home(CENTER_X, CENTER_Y)
+        attempts = 0
+        max_attempts = 400
+        best_coords = None
 
-        hx, hy = near_home.center_x, near_home.center_y
+        while attempts < max_attempts:
+            attempts += 1
+            mx = random.randint(0, self.grid_size - 1)
+            my = random.randint(0, self.grid_size - 1)
 
-        # Radio entre 10 y 50 casillas para dar espacio de maniobra
-        radius = random.randint(10, 50)
-        dx = random.randint(-radius, radius)
-        dy = random.randint(-radius, radius)
+            if not self.homes:
+                best_coords = (mx, my)
+                break
 
-        mx = max(0, min(self.grid_size - 1, hx + dx))
-        my = max(0, min(self.grid_size - 1, hy + dy))
+            min_dist = min(home.distance_to(mx, my) for home in self.homes)
 
-        monster = Monster(mx, my, grid_size=self.grid_size, vision_radius=8)
+            if min_dist >= 25:
+                if min_dist <= 50:
+                    best_coords = (mx, my)
+                    break
+                elif best_coords is None:
+                    best_coords = (mx, my)
+
+        if best_coords is None:
+            # Fallback seguro: buscar coordenadas con la máxima distancia posible a los hogares
+            best_coords = (0, 0)
+            max_d = -1
+            for _ in range(60):
+                tx = random.randint(0, self.grid_size - 1)
+                ty = random.randint(0, self.grid_size - 1)
+                d = min(h.distance_to(tx, ty) for h in self.homes) if self.homes else 999
+                if d > max_d:
+                    max_d = d
+                    best_coords = (tx, ty)
+
+        monster = Monster(best_coords[0], best_coords[1], grid_size=self.grid_size, vision_radius=8)
         self.monsters.append(monster)
         return monster
 

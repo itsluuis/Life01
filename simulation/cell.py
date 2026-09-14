@@ -138,8 +138,8 @@ class PrimordialCell:
                 self.hp = min(self.max_hp, self.hp + 1)
             reason = "Día completado con éxito (alimentada y en hogar)."
 
-            # 50% de probabilidad de reproducción al sobrevivir con éxito
-            if random.random() < 0.50:
+            # 67% de probabilidad de reproducción al sobrevivir con éxito
+            if random.random() < 0.67:
                 will_reproduce = True
         else:
             self.hp -= 1

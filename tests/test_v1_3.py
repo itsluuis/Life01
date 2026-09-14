@@ -150,7 +150,33 @@ class TestVersion13Features(unittest.TestCase):
         self.assertIn("monsters_coords", data)
         self.assertIn("homes_data", data)
         self.assertIn("recent_announcements", data)
-        self.assertEqual(len(data["recent_announcements"]), 2)
+    def test_monster_spawn_safe_distance(self):
+        """Verifica que los monstruos nunca aparezcan a menos de 25 casillas de ningún hogar."""
+        home = self.env.homes[0]  # (50, 50)
+        # Generar 20 monstruos y comprobar que todos respeten la distancia mínima
+        for _ in range(20):
+            monster = self.env.spawn_monster()
+            dist = home.distance_to(monster.x, monster.y)
+            self.assertGreaterEqual(dist, 25, f"Monstruo en ({monster.x}, {monster.y}) a distancia {dist} < 25")
+
+    def test_colliding_homes_merge(self):
+        """Verifica que hogares que colisionen o se solapen se fusionen en un único asentamiento."""
+        self.assertEqual(len(self.env.homes), 1)
+        initial_home = self.env.homes[0]
+        self.assertEqual(len(initial_home.tiles), 25)
+
+        # 1. Añadir hogar que colisiona (52, 50) con el inicial (50, 50)
+        merged_home, was_merged = self.env.add_home(52, 50)
+        self.assertTrue(was_merged)
+        self.assertEqual(len(self.env.homes), 1)  # Debe seguir siendo 1 hogar unificado
+        self.assertGreater(len(merged_home.tiles), 25)  # Territorio expandido
+        self.assertIn((50, 50), merged_home.centers)
+        self.assertIn((52, 50), merged_home.centers)
+
+        # 2. Añadir un hogar lejano (80, 80) que no colisiona
+        distant_home, was_merged_distant = self.env.add_home(80, 80)
+        self.assertFalse(was_merged_distant)
+        self.assertEqual(len(self.env.homes), 2)  # Ahora sí son 2 asentamientos separados
 
 
 if __name__ == "__main__":

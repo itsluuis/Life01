@@ -63,7 +63,7 @@ class TestLifeSimulation(unittest.TestCase):
         self.assertFalse(repro)
 
     def test_reproduction_probability(self):
-        # Probar que al comer y estar en casa, eventualmente se reproduce (50% prob)
+        # Probar que al comer y estar en casa, se reproduce con 67% de probabilidad
         repro_count = 0
         trials = 100
         for _ in range(trials):
@@ -72,9 +72,9 @@ class TestLifeSimulation(unittest.TestCase):
             _, _, will_reproduce = c.resolve_day_end(in_home_zone=True)
             if will_reproduce:
                 repro_count += 1
-        # De 100 intentos con p=0.5, debe estar razonablemente entre 25 y 75
-        self.assertGreater(repro_count, 20)
-        self.assertLess(repro_count, 80)
+        # Con p=0.67 en 100 intentos, debe estar razonablemente entre 35 y 95
+        self.assertGreater(repro_count, 35)
+        self.assertLess(repro_count, 95)
 
     def test_environment_food_spawn_and_rot(self):
         env = Environment()

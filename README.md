@@ -17,9 +17,9 @@ Simulación interactiva de vida artificial donde una colonia celular evoluciona 
   - Tienen la habilidad única de **fundar nuevos hogares 5x5** para expandir la civilización.
 
 ### 2. 🍷 Monstruos Depredadores (Color Vino Tinto `#881337`)
-- **Aparición y Spawn**:
-  - Al iniciar la generación (Día 0) **siempre aparece 1 monstruo** en un radio de hasta 50 casillas de un hogar.
-  - En cada nuevo día existe un **15% de probabilidad** de que aparezca un monstruo adicional.
+- **Aparición y Spawn Seguro (Radio >= 25 casillas)**:
+  - Al iniciar la generación (Día 0) **siempre aparece 1 monstruo** y en días subsecuentes existe un **15% de probabilidad** diaria.
+  - **Zona de exclusión de 25 casillas**: Los monstruos generados aleatoriamente **nunca aparecen a menos de 25 casillas de ningún hogar activo** (rango preferente entre 25 y 50 casillas). Esto previene que un depredador aparezca de la nada sobre una colonia y la aniquile al instante.
   - Si la colonia elimina a todos los monstruos, tras 1 día sin depredadores reaparece uno automáticamente.
 - **Ciclo de Inanición (3 días)**:
   - Cada monstruo posee una reserva de vida de **3 días (30 ciclos)**.
@@ -37,9 +37,10 @@ Simulación interactiva de vida artificial donde una colonia celular evoluciona 
   - **45% Gana el Monstruo**: La cazadora es derrotada y devorada. El monstruo reinicia sus 3 días de vida.
   - **10% Empate**: Ambos sobreviven y continúan el enfrentamiento en el ciclo siguiente.
 
-### 4. 🏛️ Construcción Dinámica de Hogares y Peligro Nocturno
-- **Fundación de Nuevos Hogares**:
-  - Una cazadora alimentada que detecta **al menos 2 células blancas** en un radio 5x5 puede construir un nuevo hogar 5x5 funcional con marco verde.
+### 4. 🏛️ Construcción Dinámica, Fusión Territorial y Peligro Nocturno
+- **Fundación y Fusión de Hogares**:
+  - Una cazadora alimentada que detecta **al menos 2 células blancas** en un radio 5x5 puede fundar un hogar.
+  - **Fusión Territorial sin Bugs Visuales**: Si el área de efecto de un nuevo hogar colisiona o se solapa con un hogar existente, ambos **se unen formando un único asentamiento continuo expandido**. Se eliminan automáticamente las líneas divisorias internas, trazando un marco exterior esmeralda continuo y preservando los núcleos verdes de cada centro fundado.
   - Probabilidad de construcción con decaimiento según los hogares existentes:
     $$P(\text{construir}) = \max\left(15\%, \; 100\% \times 0.50^{(\text{hogares} - 1)}\right)$$
   - Todas las células pueden refugiarse en **cualquiera de los hogares activos** del mapa (orientándose siempre al más cercano).
@@ -49,8 +50,9 @@ Simulación interactiva de vida artificial donde una colonia celular evoluciona 
 - **Actividad Nocturna**:
   - Los monstruos **no duermen de noche**: continúan activos y cazando en la oscuridad, interceptando células rezagadas o en tránsito entre hogares.
 
-### 5. 🍎 Comida Escalable
-- Para permitir la viabilidad demográfica de colonias grandes sin perder la presión selectiva:
+### 5. 👶 Mayor Dinámica Demográfica y Comida Escalable
+- **Reproducción aumentada al 67%**: Al alimentarse y llegar con éxito a un hogar antes del anochecer, la probabilidad de reproducción celular se eleva al **67%** (fomentando el florecimiento de la colonia).
+- **Comida Escalable**:
   $$\text{Comidas diarias} = 2 + \lfloor 0.4 \times \text{Población Total} \rfloor$$
 
 ### 6. 📡 Feed de Avisos en Tiempo Real (2 Líneas) y Gráficos Desglosados
@@ -91,7 +93,7 @@ Simulación interactiva de vida artificial donde una colonia celular evoluciona 
 - Vida inicial: **2 HP** (máximo 2).
 - Comer requiere estar adyacente a la comida o derrotar a un monstruo (cazadoras).
 - Al anochecer (fin del día):
-  - **Éxito**: Si comió y llegó a cualquiera de los hogares activos, sobrevive, regenera salud y tiene **50% de probabilidad de reproducirse**.
+  - **Éxito**: Si comió y llegó a cualquiera de los hogares activos, sobrevive, regenera salud y tiene **67% de probabilidad de reproducirse**.
   - **Fallo**: Si no comió o no alcanzó ningún hogar, pierde **1 HP**. Si llega a 0 HP, muere.
 
 ---
