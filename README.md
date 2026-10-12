@@ -1,64 +1,64 @@
 <div align="center">
 
-# 🧬 Life01 — Ecosistema Evolutivo y Civilización Celular
+# Life01 — Ecosistema Evolutivo y Civilización Celular
 ### Vida Artificial, Aprendizaje por Refuerzo Descentralizado (Q-Learning) y Expansión Territorial
 
 [![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?style=for-the-badge&logo=python&logoColor=white)](https://www.python.org/)
 [![GUI](https://img.shields.io/badge/GUI-CustomTkinter-blue?style=for-the-badge)](https://customtkinter.tomschimansky.com/)
 [![Database](https://img.shields.io/badge/Storage-SQLite3%20WAL-003B57?style=for-the-badge&logo=sqlite&logoColor=white)](https://www.sqlite.org/)
 [![Tests](https://img.shields.io/badge/Tests-19%20Passing-brightgreen?style=for-the-badge&logo=pytest&logoColor=white)](tests/)
-[![AI](https://img.shields.io/badge/Reinforcement%20Learning-Decentralized%20Q--Learning-8A2BE2?style=for-the-badge)](#-arquitectura-de-aprendizaje-y-genética)
-[![Status](https://img.shields.io/badge/Version-1.3%20Ecosystem-emerald?style=for-the-badge)](#-características-del-ecosistema-v13)
+[![AI](https://img.shields.io/badge/Reinforcement%20Learning-Decentralized%20Q--Learning-8A2BE2?style=for-the-badge)](#arquitectura-de-aprendizaje-y-genética)
+[![Status](https://img.shields.io/badge/Version-1.3%20Ecosystem-059669?style=for-the-badge)](#características-del-ecosistema-v13)
 
 <p align="center">
   <b>Simulación interactiva multi-agente en una malla primordial de 10,201 casillas (101&times;101).</b><br/>
   Agentes con mentes autónomas aprenden a recolectar alimento, huir del anochecer, cazar monstruos depredadores, fundar asentamientos territoriales y transmitir su conocimiento a través de selección natural y mutación genética.
 </p>
 
-[Comenzar](#-instalación-y-ejecución) • [Arquitectura](#-arquitectura-del-sistema) • [Mecánicas Ecológicas](#-características-del-ecosistema-v13) • [IA & Genética](#-arquitectura-de-aprendizaje-y-genética) • [Interfaz](#-interfaz-gráfica-y-controles) • [Pruebas](#-pruebas-automatizadas)
+[Comenzar](#instalación-y-ejecución) • [Arquitectura](#arquitectura-del-sistema) • [Mecánicas Ecológicas](#características-del-ecosistema-v13) • [IA & Genética](#arquitectura-de-aprendizaje-y-genética) • [Interfaz](#interfaz-gráfica-y-controles) • [Pruebas](#pruebas-automatizadas)
 
 ---
 
 </div>
 
-## 📌 Tabla de Contenidos
+## Tabla de Contenidos
 
-- [Descripción General](#-descripción-general)
-- [Arquitectura del Sistema](#-arquitectura-del-sistema)
+- [Descripción General](#descripción-general)
+- [Arquitectura del Sistema](#arquitectura-del-sistema)
   - [Diagrama de Flujo de Componentes](#diagrama-de-flujo-de-componentes)
-- [Características del Ecosistema (v1.3)](#-características-del-ecosistema-v13)
+- [Características del Ecosistema (v1.3)](#características-del-ecosistema-v13)
   - [1. Castas Celulares Especializadas](#1-castas-celulares-especializadas)
   - [2. Monstruos Depredadores Heurísticos](#2-monstruos-depredadores-heurísticos)
   - [3. Sistema de Combate y Depredación](#3-sistema-de-combate-y-depredación)
   - [4. Expansión Territorial y Fusión de Hogares](#4-expansión-territorial-y-fusión-de-hogares)
   - [5. Dinámica Demográfica y Comida Escalable](#5-dinámica-demográfica-y-comida-escalable)
   - [6. Feed de Hitos y Telemetría en Tiempo Real](#6-feed-de-hitos-y-telemetría-en-tiempo-real)
-- [Arquitectura de Aprendizaje y Genética](#-arquitectura-de-aprendizaje-y-genética)
+- [Arquitectura de Aprendizaje y Genética](#arquitectura-de-aprendizaje-y-genética)
   - [Q-Learning Descentralizado e Individual](#q-learning-descentralizado-e-individual)
   - [Espacio de Estados y Acciones](#espacio-de-estados-y-acciones)
   - [Función de Aptitud Biológica (Fitness)](#función-de-aptitud-biológica-fitness)
   - [Persistencia: Salón de la Fama y Telemetría](#persistencia-salón-de-la-fama-y-telemetría)
-- [Estructura del Proyecto](#-estructura-del-proyecto)
-- [Interfaz Gráfica y Controles](#-interfaz-gráfica-y-controles)
-- [Instalación y Ejecución](#-instalación-y-ejecución)
-- [Pruebas Automatizadas](#-pruebas-automatizadas)
-- [Licencia](#-licencia)
+- [Estructura del Proyecto](#estructura-del-proyecto)
+- [Interfaz Gráfica y Controles](#interfaz-gráfica-y-controles)
+- [Instalación y Ejecución](#instalación-y-ejecución)
+- [Pruebas Automatizadas](#pruebas-automatizadas)
+- [Licencia](#licencia)
 
 ---
 
-## 🔬 Descripción General
+## Descripción General
 
 **Life01** es una simulación evolutiva que investiga cómo emergen comportamientos complejos y estrategias de supervivencia a partir de reglas biológicas simples combinadas con aprendizaje por refuerzo:
 
 - **Ecosistema de Castas**: Población diferenciada entre células recolectoras (proletariado biológico) y células cazadoras/constructoras con capacidad defensiva y arquitectónica.
 - **Presión Selectiva Real**: Depredadores nocturnos errantes que cazan activamente e intentan asediar los asentamientos de la colonia.
 - **Mentes Propias en Memoria**: A diferencia de modelos con un cerebro global centralizado, en Life01 cada individuo cuenta con su propia instancia de `QLearningAgent`, tomando decisiones independientes basadas en su entorno sensorial inmediato.
-- **Herencia Epigenética y Mutación**: Las hijas heredan la tabla de políticas de la madre con una tasa de mutación configurable, seleccionando a la **Célula Alfa** al final de cada generación para guiar la evolución histórica.
+- **Herencia Epigenética y Mutación**: Las descendientes heredan la tabla de políticas de la célula progenitora con una tasa de mutación configurable, seleccionando a la **Célula Alfa** al final de cada generación para guiar la evolución histórica.
 - **Ingeniería Territorial Continua**: Cuando los asentamientos celulares se expanden y entran en contacto, el sistema fusiona sus territorios en un único dominio contiguo sin artefactos geométricos.
 
 ---
 
-## 🏗️ Arquitectura del Sistema
+## Arquitectura del Sistema
 
 La aplicación está diseñada bajo una arquitectura modular y desacoplada dividida en 4 subsistemas principales: **Runtime Orchestration**, **Ecosystem Simulation**, **Learning & Persistence**, y **Desktop Interface**.
 
@@ -150,13 +150,13 @@ class node_app,node_grid,node_stats toneRose
 
 ---
 
-## ⚔️ Características del Ecosistema (v1.3)
+## Características del Ecosistema (v1.3)
 
 ### 1. Castas Celulares Especializadas
 
-| Característica | ⚪ Células Blancas (Recolectoras) | 🔵 Células Cazadoras (`#38bdf8`) |
+| Característica | Células Blancas (Recolectoras) | Células Cazadoras (Cian `#38bdf8`) |
 | :--- | :--- | :--- |
-| **Rol Ecológico** | Recolección masiva de nutrientes | Defensa militar, depredación y arquitectura |
+| **Rol Ecológico** | Recolección masiva de nutrientes | Defensa territorial, depredación y arquitectura |
 | **Dieta** | Exclusivamente comida roja vegetal | Doble vía: comida roja o carne de monstruo |
 | **Combate** | Nulo (presa vulnerable inmediata) | Activo (combate estocástico en adyacencia) |
 | **Construcción** | No construyen hogares | Fundan nuevos hogares $5\times 5$ si hay 2 blancas cerca |
@@ -168,7 +168,7 @@ Los monstruos (representados en vino tinto `#881337`) actúan como depredadores 
 
 - **Zona de Exclusión de Nacimiento ($\ge 25$ casillas)**:
   - Al iniciar la generación siempre aparece 1 monstruo. En días posteriores existe una probabilidad diaria del **15%** de spawn.
-  - Para evitar la aniquilación injusta de colonias nacientes, los monstruos nunca aparecen a menos de 25 casillas de distancia de cualquier hogar activo (rango seguro preferente entre 25 y 50 casillas).
+  - Para evitar la aniquilación prematura de colonias nacientes, los monstruos nunca aparecen a menos de 25 casillas de distancia de cualquier hogar activo (rango seguro preferente entre 25 y 50 casillas).
   - Si la colonia elimina a todos los monstruos, reaparece uno automáticamente tras 1 día de ausencia de depredadores.
 - **Reloj de Inanición (3 días / 30 ciclos)**:
   - Cada monstruo posee una reserva vital de **30 ciclos**. Cada paso sin alimentarse decrementa su contador. Al llegar a cero, muere por inanición.
@@ -213,7 +213,7 @@ Las células cazadoras pueden fundar nuevos centros poblacionales bajo condicion
 3. **Demolición con Ventana de Hibernación**:
    - Destruir una casa toma 1 ciclo al monstruo, lo sacia y lo induce a **hibernación durante 4 ciclos consecutivos**, creando una ventana táctica crucial para que las cazadoras lo rodeen o escapen.
 4. **Vigilia Nocturna**:
-   - Los monstruos **no duermen de noche**; continúan patrullando y cazando en la oscuridad a las células rezagadas.
+   - Los monstruos no duermen de noche; continúan patrullando y cazando en la oscuridad a las células rezagadas.
 
 ### 5. Dinámica Demográfica y Comida Escalable
 
@@ -235,7 +235,7 @@ El panel lateral incorpora una marquesina de dos líneas que registra hitos acum
 
 ---
 
-## 🧬 Arquitectura de Aprendizaje y Genética
+## Arquitectura de Aprendizaje y Genética
 
 ### Q-Learning Descentralizado e Individual
 
@@ -283,7 +283,7 @@ El cerebro de la Célula Alfa se serializa y clona para fundar la siguiente gene
 
 ---
 
-## 📂 Estructura del Proyecto
+## Estructura del Proyecto
 
 ```plaintext
 Life01/
@@ -314,7 +314,7 @@ Life01/
 
 ---
 
-## 🎮 Interfaz Gráfica y Controles
+## Interfaz Gráfica y Controles
 
 La interfaz está construida sobre una paleta moderna en modo oscuro (`#0b0f19`):
 
@@ -323,9 +323,9 @@ La interfaz está construida sobre una paleta moderna en modo oscuro (`#0b0f19`)
 | Control / Indicador | Función |
 | :--- | :--- |
 | **Pausar / Reanudar** | Detiene o reanuda la simulación en cualquier instante del ciclo. |
-| **Velocidad (`1x`, `5x`, `⚡ Turbo`)** | Controla el retardo del loop (`1.0s`, `0.2s`, `0.0s` a máxima velocidad de CPU). |
+| **Velocidad (`1x`, `5x`, `Turbo`)** | Controla el retardo del bucle (`1.0s`, `0.2s`, `0.0s` a máxima velocidad de CPU). |
 | **Escala de Zoom (`6x`, `7x`, `8x`)** | Modifica dinámicamente el tamaño de pixelado de la malla según la pantalla. |
-| **💾 Guardar y Salir** | Persiste el genoma del mejor campeón en `brain.db` y cierra de forma segura. |
+| **Guardar y Salir** | Persiste el genoma del mejor campeón en `brain.db` y cierra de forma segura. |
 | **Gráfica de Población** | Curva en tiempo real desglosada: blanco para recolectoras, celeste para cazadoras. |
 | **Feed de Avisos** | Terminal minimalista que anuncia hitos de construcción, combate y demografía. |
 
@@ -333,7 +333,7 @@ La interfaz está construida sobre una paleta moderna en modo oscuro (`#0b0f19`)
 
 ---
 
-## 🚀 Instalación y Ejecución
+## Instalación y Ejecución
 
 ### Requisitos Previos
 - **Python 3.10** o superior instalado en el sistema.
@@ -345,7 +345,7 @@ git clone https://github.com/itsluuis/life01.git
 cd life01
 ```
 
-### 2. Crear y Activar un Entorno Virtual (Opcional pero recomendado)
+### 2. Crear y Activar un Entorno Virtual (Opcional)
 ```bash
 # Windows
 python -m venv venv
@@ -368,7 +368,7 @@ python main.py
 
 ---
 
-## 🧪 Pruebas Automatizadas
+## Pruebas Automatizadas
 
 El proyecto cuenta con una suite integral de 19 pruebas unitarias y de integración que cubren la resolución de combate, reglas de reproducción, herencia epigenética, algoritmos de fusión de hogares y renderizado gráfico:
 
@@ -386,6 +386,6 @@ OK
 
 ---
 
-## 📄 Licencia
+## Licencia
 
 Este proyecto se distribuye bajo fines educativos y de investigación en Vida Artificial y Sistemas Complejos Adaptativos. Desarrollado por [@itsluuis](https://github.com/itsluuis).
